@@ -1,18 +1,17 @@
-FROM mcr.microsoft.com/dotnet/core/aspnet:3.0-alpine AS base
+FROM dreamstream/librdkafka:1.2.1-1-bullseye-slim-dotnetcore3.0.0 AS base
 WORKDIR /app
 EXPOSE 80
-RUN apk update && apk add --no-cache gcompat
 
 FROM mcr.microsoft.com/dotnet/core/sdk:3.0-alpine AS build
 WORKDIR /src
 COPY ["Producer/Producer.csproj", "Producer/"]
-RUN dotnet restore "Producer/Producer.csproj"
+RUN dotnet restore -r linux-arm "Producer/Producer.csproj"
 COPY . .
 WORKDIR "/src/Producer"
-RUN dotnet build "Producer.csproj" -c Release -o /app/build
+RUN dotnet build "Producer.csproj" -r linux-arm -c Release -o /app/build
 
 FROM build AS publish
-RUN dotnet publish "Producer.csproj" -c Release -o /app/publish
+RUN dotnet publish "Producer.csproj" -r linux-arm -c Release -o /app/publish
 
 FROM base AS final
 WORKDIR /app

@@ -1,0 +1,76 @@
+trigger:
+- master
+
+resources:
+- repo: self
+
+variables:
+  tag: '$(Build.BuildId)'
+  image: dreamstream/evaluation-producer
+  projectPath: ./Evaluation-Producer
+
+stages:
+- stage: Build
+  displayName: Build image
+  jobs:  
+  - job: Build
+    displayName: Build
+    # pool: Anders
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    - task: Docker@2
+      displayName: Build an image
+      inputs:
+        containerRegistry: 'dockerHub'
+        repository: | 
+          $(image)
+        command: 'buildAndPush'
+        Dockerfile: '$(projectPath)/Dockerfile'
+        buildContext: '.'
+        tags: |
+          $(tag)
+    - task: PublishPipelineArtifact@1
+      inputs:
+        targetPath: 'manifests'
+        artifact: 'manifests'
+- stage: Release
+  jobs:  
+  - deployment: ReleaseAnders
+    pool: Anders
+    environment: 'test'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - task: DownloadPipelineArtifact@2
+            inputs:
+              buildType: 'current'
+              artifact: 'manifests'
+              targetPath: 'manifests'
+          - task: KubernetesManifest@0
+            inputs:
+              action: 'deploy'
+              namespace: default
+              kubernetesServiceConnection: 'KubeAnders'
+              manifests: manifests/*
+              containers: '$(image):$(tag)'
+  - deployment: ReleaseNicklas
+    pool: Nicklas
+    environment: 'test'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - task: DownloadPipelineArtifact@2
+            inputs:
+              buildType: 'current'
+              artifact: 'manifests'
+              targetPath: 'manifests'
+          - task: KubernetesManifest@0
+            inputs:
+              action: 'deploy'
+              namespace: default
+              kubernetesServiceConnection: 'KubeNicklas'
+              manifests: manifests/*
+              containers: '$(image):$(tag)'

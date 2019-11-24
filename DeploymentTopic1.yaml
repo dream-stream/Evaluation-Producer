@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka-producer
+  labels:
+    app: kafka-producer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kafka-producer
+  template:
+    metadata:
+      labels:
+        app: kafka-producer
+    spec:
+      containers:
+      - name: kafka-producer
+        image: dreamstream/evaluation-producer:v1
+        imagePullPolicy: Always
+        env:
+        - name: MESSAGE_AMOUNT
+          value : "1000"
+        - name: BATCHING_SIZE
+          value : "20"
+        - name: BATCH_TIMER
+          value : "10"
+        - name: APPLICATION_TYPE
+          value : "Dream-Stream"
+        - name: TOPIC_NAME
+          value : "Topic1"

@@ -119,7 +119,7 @@ namespace Producer.Services
                 if(brokerSocket == null) throw new Exception("Failed to get brokerSocket");
                 if(!brokerSocket.IsOpen()) return false;
                 await brokerSocket.SendMessage(message);
-                Console.WriteLine($"Sent batched messages to socket {brokerSocket.ConnectedTo} with topic {header.Topic} with partition {header.Partition}");
+                //Console.WriteLine($"Sent batched messages to socket {brokerSocket.ConnectedTo} with topic {header.Topic} with partition {header.Partition}");
                 MessageBatchesSent.WithLabels(brokerSocket.ConnectedTo).Inc();
                 MessageBatchesSent.WithLabels($"{header.Topic}/{header.Partition}").Inc();
                 return true;

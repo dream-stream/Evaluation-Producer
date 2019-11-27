@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: evaluation-producer
+  labels:
+    app: evaluation-producer
+    monitor: "true"
+spec:
+  ports:
+  - port: 80
+    name: web
+  selector:
+    app: evaluation-producer
+  type: ClusterIP

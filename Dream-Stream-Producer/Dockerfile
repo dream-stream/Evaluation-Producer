@@ -16,4 +16,5 @@ RUN dotnet publish "Producer.csproj" -r linux-arm -c Release -o /app/publish
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
+COPY libgrpc_csharp_ext.x86.so libgrpc_csharp_ext.x86.so
 ENTRYPOINT ["dotnet", "Producer.dll"]

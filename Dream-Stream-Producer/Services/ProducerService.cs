@@ -81,7 +81,7 @@ namespace Producer.Services
 
         public async Task Publish(MessageHeader header, Message message)
         {
-            MessagesBatched.WithLabels($"{header.Topic}/{header.Partition}").Inc();
+            
             if (_batchingService.TryBatchMessage(header, message, out var queueFull))
             {
                 if (queueFull == null) return;
@@ -106,18 +106,20 @@ namespace Producer.Services
             var retries = 0;
             while (retries < MaxRetries)
             {
-                if (await SendMessage(_serializer.Serialize<IMessage>(messages), header)) break;
+                if (await SendMessage(messages, header)) break;
                 Console.WriteLine($"SendMessage retry {++retries}");
                 Thread.Sleep(500 * retries);
             }
         }
 
-        private async Task<bool> SendMessage(byte[] message, MessageHeader header)
+        private async Task<bool> SendMessage(MessageContainer messages, MessageHeader header)
         {
+            MessagesBatched.WithLabels($"{header.Topic}/{header.Partition}").Inc(messages.Messages.Count);
             if (_brokerSocketsDict.TryGetValue($"{header.Topic}/{header.Partition}", out var brokerSocket))
             {
                 if(brokerSocket == null) throw new Exception("Failed to get brokerSocket");
                 if(!brokerSocket.IsOpen()) return false;
+                var message = _serializer.Serialize<IMessage>(messages);
                 await brokerSocket.SendMessage(message);
                 //Console.WriteLine($"Sent batched messages to socket {brokerSocket.ConnectedTo} with topic {header.Topic} with partition {header.Partition}");
                 MessageBatchesSent.WithLabels(brokerSocket.ConnectedTo).Inc();

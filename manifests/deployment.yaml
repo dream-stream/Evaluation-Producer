@@ -4,6 +4,7 @@ metadata:
   name: evaluation-producer
   labels:
     app: evaluation-producer
+    k8s-app: prometheus
 spec:
   replicas: 1
   selector:
@@ -13,6 +14,7 @@ spec:
     metadata:
       labels:
         app: evaluation-producer
+        k8s-app: prometheus
     spec:
       containers:
       - name: evaluation-producer

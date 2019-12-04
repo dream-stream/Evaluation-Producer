@@ -11,6 +11,7 @@ namespace Evaluation_Producer
             BatchTimerVariable = int.Parse(Environment.GetEnvironmentVariable("BATCH_TIMER") ?? "10");
             ApplicationType = Environment.GetEnvironmentVariable("APPLICATION_TYPE") ?? "NOT_SET";
             TopicName = Environment.GetEnvironmentVariable("TOPIC_NAME") ?? "Topic";
+            DelayInMillisecond = int.Parse(Environment.GetEnvironmentVariable("DELAY_IN_MILLISECOND") ?? "15000");
         }
 
         public static void PrintProperties()
@@ -26,5 +27,6 @@ namespace Evaluation_Producer
         public static int BatchingSizeVariable { get; set; } 
         public static int BatchTimerVariable { get; set; }
         public static string ApplicationType { get; set; }
+        public static int DelayInMillisecond { get; set; }
     }
 }

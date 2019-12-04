@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
       - name: evaluation-producer
-        image: dreamstream/evaluation-producer:V4
+        image: dreamstream/evaluation-producer:V5
         imagePullPolicy: Always
         ports:
         - containerPort: 80
@@ -35,3 +35,5 @@ spec:
           value: "Dream-Stream"
         - name: TOPIC_NAME
           value: "Topic3"
+        - name: DELAY_IN_MILLISECOND
+          value: "0"

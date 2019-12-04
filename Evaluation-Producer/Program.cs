@@ -75,6 +75,7 @@ namespace Evaluation_Producer
             Variables.AmountOfMessagesVariable = EnvironmentVariables.AmountOfMessagesVariable;
             Variables.BatchTimerVariable = EnvironmentVariables.BatchTimerVariable;
             Variables.BatchingSizeVariable = EnvironmentVariables.BatchTimerVariable;
+            var delay = EnvironmentVariables.DelayInMillisecond;
             var producer = await ProducerService.Setup("http://etcd");
             var messageHeaders = await producer.GetMessageHeaders(messages, topic);
             while (true)
@@ -84,7 +85,7 @@ namespace Evaluation_Producer
                     await producer.Publish(messageHeaders[i], messages[i]);
                 }
 
-                await Task.Delay(15 * 1000); //Delay added for test of timer on batches
+                await Task.Delay(delay); //Delay added for test of timer on batches
             }
         }
     }

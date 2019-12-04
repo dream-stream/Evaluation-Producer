@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
       - name: evaluation-producer
-        image: dreamstream/evaluation-producer:V3
+        image: dreamstream/evaluation-producer:V4
         imagePullPolicy: Always
         ports:
         - containerPort: 80
@@ -26,11 +26,11 @@ spec:
         - name: ASPNETCORE_ENVIRONMENT
           value: "Production"
         - name: MESSAGE_AMOUNT
-          value: "1000"
+          value: "100000"
         - name: BATCHING_SIZE
-          value: "20"
+          value: "40000"
         - name: BATCH_TIMER
-          value: "10"
+          value: "5"
         - name: APPLICATION_TYPE
           value: "Dream-Stream"
         - name: TOPIC_NAME

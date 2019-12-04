@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
@@ -11,9 +10,9 @@ namespace Producer
     {
         private static async Task Main()
         {
-            Variables.AmountOfMessagesVariable = 1000;
+            Variables.AmountOfMessagesVariable = 100000;
             Variables.BatchTimerVariable = 20;
-            Variables.BatchingSizeVariable = 10;
+            Variables.BatchingSizeVariable = 40000;
             Variables.IsDev = true;
             const string topic = "Topic3";
 
@@ -34,7 +33,7 @@ namespace Producer
                 sw.Stop();
                 Console.WriteLine($"Sent messages in elapsed in {sw.ElapsedMilliseconds} milliseconds");
 
-                //await Task.Delay(15 * 1000); //Delay added for test of timer on batches
+                await Task.Delay(500); //Delay added for test of timer on batches
             }
         }
     }

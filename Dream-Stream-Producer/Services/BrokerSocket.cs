@@ -17,6 +17,7 @@ namespace Producer.Services
         public BrokerSocket()
         {
             _clientWebSocket = new ClientWebSocket();
+            _clientWebSocket.Options.SetBuffer(1024 * 1000, 1024 * 1000);
             _lock = new Semaphore(1, 1);
         }
 

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Confluent.Kafka;
@@ -12,6 +13,16 @@ namespace Evaluation_Producer
 {
     class Program
     {
+        private static readonly Gauge ProducerRunTime = Metrics.CreateGauge("producer_last_run_time", "The amount of ms it took for the producer to publish the number of messages set in the AmountOfMessagesVariable.", new GaugeConfiguration
+        {
+            LabelNames = new []{ "ApplicationType" }
+        });
+
+        private static readonly Counter MessagesPublished = Metrics.CreateCounter("messages_published", "The amount of messages published from the producer.", new CounterConfiguration
+        {
+            LabelNames = new[] { "ApplicationType" }
+        });
+
         static async Task Main(string[] args)
         {
             Console.WriteLine("Starting Evaluation-Producer");
@@ -29,7 +40,8 @@ namespace Evaluation_Producer
                     await DreamStream(messages, EnvironmentVariables.TopicName);
                     break;
                 case "Kafka":
-                    await Kafka(messages, EnvironmentVariables.TopicName);
+                    //await KafkaAwait(messages, EnvironmentVariables.TopicName);
+                    await KafkaFlush(messages, EnvironmentVariables.TopicName);
                     break;
                 case "Nats-Streaming":
                     break;
@@ -38,23 +50,67 @@ namespace Evaluation_Producer
             }
         }
 
-        private static async Task Kafka(Message[] messages, string topicName)
+        private static async Task KafkaFlush(Message[] messages, string topicName)
+        {
+            var delay = EnvironmentVariables.DelayInMillisecond;
+            var config = KafkaConfig();
+
+            var stopwatch = new Stopwatch();
+
+            using var p = new ProducerBuilder<string, string>(config).Build();
+            while (true)
+            {
+                stopwatch.Reset();
+                stopwatch.Start();
+                foreach (var message in messages)
+                {
+                    p.Produce(topicName, new Message<string, string> {Key = message.Address, Value = JsonSerializer.Serialize(message)}, KafkaProduceHandler);
+                }
+
+                stopwatch.Stop();
+                ProducerRunTime.WithLabels("Kafka").Set(stopwatch.ElapsedMilliseconds);
+                MessagesPublished.WithLabels("Kafka").Inc(messages.Length);
+                // wait for any inflight messages to be delivered.
+                p.Flush();
+                await Task.Delay(delay); //Delay added for test of timer on batches
+
+            }
+        }
+
+        private static void KafkaProduceHandler(DeliveryReport<string, string> r)
+        {
+            Console.WriteLine(!r.Error.IsError ? $"Delivered message to {r.TopicPartitionOffset}" : $"Delivery Error: {r.Error.Reason}");
+        }
+
+        private static ProducerConfig KafkaConfig()
         {
             var list = new List<string>();
             for (var i = 0; i < 3; i++) list.Add($"kf-kafka-{i}.kf-hs-kafka.default.svc.cluster.local:9093");
             var bootstrapServers = string.Join(',', list);
-            var config = new ProducerConfig { BootstrapServers = bootstrapServers };
+            var config = new ProducerConfig {BootstrapServers = bootstrapServers};
+            return config;
+        }
+
+        private static async Task KafkaAwait(Message[] messages, string topicName)
+        {
+            var delay = EnvironmentVariables.DelayInMillisecond;
+            var config = KafkaConfig();
 
             using var producer = new ProducerBuilder<string, string>(config).Build();
-
+            var stopwatch = new Stopwatch();
+            ProducerRunTime.WithLabels("Kafka").Set(0);
+            MessagesPublished.WithLabels("Kafka").Inc(0);
             while (true)
             {
+                stopwatch.Reset();
+                stopwatch.Start();
                 foreach (var message in messages)
                 {
                     try
                     {
-                        var dr = await producer.ProduceAsync(topicName, new Message<string, string> {Key = message.Address ,Value = JsonSerializer.Serialize(message) });
-                        Console.WriteLine($"Delivered '{dr.Value}' to '{dr.TopicPartitionOffset}'");
+                        var dr = await producer.ProduceAsync(topicName,
+                            new Message<string, string> { Key = message.Address, Value = JsonSerializer.Serialize(message) });
+                        //Console.WriteLine($"Delivered '{dr.Value}' to '{dr.TopicPartitionOffset}'");
                     }
                     catch (ProduceException<Null, string> e)
                     {
@@ -65,26 +121,34 @@ namespace Evaluation_Producer
                         Console.WriteLine($"Delivery failed string: {e.Error.Reason}");
                     }
                 }
-
-                await Task.Delay(15 * 1000); //Delay added for test of timer on batches
+                stopwatch.Stop();
+                ProducerRunTime.WithLabels("Kafka").Set(stopwatch.ElapsedMilliseconds);
+                MessagesPublished.WithLabels("Kafka").Inc(messages.Length);
+                await Task.Delay(delay); //Delay added for test of timer on batches
             }
         }
+
 
         private static async Task DreamStream(Message[] messages, string topic)
         {
             Variables.AmountOfMessagesVariable = EnvironmentVariables.AmountOfMessagesVariable;
             Variables.BatchTimerVariable = EnvironmentVariables.BatchTimerVariable;
-            Variables.BatchingSizeVariable = EnvironmentVariables.BatchTimerVariable;
+            Variables.BatchingSizeVariable = EnvironmentVariables.BatchingSizeVariable;
             var delay = EnvironmentVariables.DelayInMillisecond;
             var producer = await ProducerService.Setup("http://etcd");
             var messageHeaders = await producer.GetMessageHeaders(messages, topic);
+            var stopwatch = new Stopwatch();
             while (true)
             {
+                stopwatch.Reset();
+                stopwatch.Start();
                 for (var i = 0; i < messageHeaders.Length; i++)
                 {
                     await producer.Publish(messageHeaders[i], messages[i]);
                 }
-
+                stopwatch.Stop();
+                ProducerRunTime.WithLabels("Dream-Stream").Set(stopwatch.ElapsedMilliseconds);
+                MessagesPublished.WithLabels("Dream-Stream").Inc(messages.Length);
                 await Task.Delay(delay); //Delay added for test of timer on batches
             }
         }

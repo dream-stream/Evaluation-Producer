@@ -28,6 +28,8 @@ namespace Producer.Services
             LabelNames = new[] { "BrokerConnection" }
         });
 
+        private static readonly Gauge MessageBatchSize = Metrics.CreateGauge("message_batch_size", "The size of the last sent batch.");
+
         public ProducerService(ISerializer serializer, BatchingService batchingService)
         {
             _serializer = serializer ?? throw new ArgumentNullException(nameof(serializer));
@@ -114,7 +116,6 @@ namespace Producer.Services
 
         private async Task<bool> SendMessage(MessageContainer messages, MessageHeader header)
         {
-            MessagesBatched.WithLabels($"{header.Topic}/{header.Partition}").Inc(messages.Messages.Count);
             if (_brokerSocketsDict.TryGetValue($"{header.Topic}/{header.Partition}", out var brokerSocket))
             {
                 if(brokerSocket == null) throw new Exception("Failed to get brokerSocket");
@@ -122,6 +123,9 @@ namespace Producer.Services
                 var message = _serializer.Serialize<IMessage>(messages);
                 await brokerSocket.SendMessage(message);
                 //Console.WriteLine($"Sent batched messages to socket {brokerSocket.ConnectedTo} with topic {header.Topic} with partition {header.Partition}");
+                MessagesBatched.WithLabels($"{header.Topic}/{header.Partition}").Inc(messages.Messages.Count);
+                MessageBatchSize.Set(messages.Messages.Count);
+
                 MessageBatchesSent.WithLabels(brokerSocket.ConnectedTo).Inc();
                 MessageBatchesSent.WithLabels($"{header.Topic}/{header.Partition}").Inc();
                 return true;

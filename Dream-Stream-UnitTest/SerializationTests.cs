@@ -65,112 +65,112 @@ namespace UnitTest
             _testOutputHelper.WriteLine($"Serialized twice message: {stopWatch.Elapsed}");
         }
 
-        [Fact]
-        public async Task ConcurrencyTest1() //TODO Test2 does not have a fair comparison
-        {
-            var socket = new BrokerSocket();
-            var messages = MessageGenerator.GenerateMessages(200);
-            var headers = MessageGenerator.GenerateMessageHeaders(messages, "Topic1", 1);
-            var stopWatch = new Stopwatch();
-            var container = new MessageContainer[headers.Length];
-            var semaphore = new Semaphore(1, 1);
+        //[Fact]
+        //public async Task ConcurrencyTest1() //TODO Test2 does not have a fair comparison
+        //{
+        //    var socket = new BrokerSocket();
+        //    var messages = MessageGenerator.GenerateMessages(200);
+        //    var headers = MessageGenerator.GenerateMessageHeaders(messages, "Topic1", 1);
+        //    var stopWatch = new Stopwatch();
+        //    var container = new MessageContainer[headers.Length];
+        //    var semaphore = new Semaphore(1, 1);
 
-            for (var i = 0; i < headers.Length; i++)
-            {
-                container[i] = new MessageContainer
-                {
-                    Header = headers[i],
-                    Messages = messages.ToList()
-                };
-            }
+        //    for (var i = 0; i < headers.Length; i++)
+        //    {
+        //        container[i] = new MessageContainer
+        //        {
+        //            Header = headers[i],
+        //            Messages = messages.ToList()
+        //        };
+        //    }
 
-            var data = new byte[headers.Length][];
-            for (int i = 0; i < container.Length; i++)
-            {
-                data[i] = LZ4MessagePackSerializer.Serialize(container[i]);
-            }
+        //    var data = new byte[headers.Length][];
+        //    for (int i = 0; i < container.Length; i++)
+        //    {
+        //        data[i] = LZ4MessagePackSerializer.Serialize(container[i]);
+        //    }
 
-            var tasks = new Task[data.Length];
+        //    var tasks = new Task[data.Length];
 
-            for (int i = 0; i < data.Length; i++)
-            {
-                var i1 = i;
-                tasks[i] = new Task(async () =>
-                {
-                    semaphore.WaitOne();
-                    await socket.SendMessage(data[i1]);
-                    semaphore.Release();
-                });
-            }
+        //    for (int i = 0; i < data.Length; i++)
+        //    {
+        //        var i1 = i;
+        //        tasks[i] = new Task(async () =>
+        //        {
+        //            semaphore.WaitOne();
+        //            await socket.SendMessage(data[i1]);
+        //            semaphore.Release();
+        //        });
+        //    }
 
-            stopWatch.Start();
-            await socket.ConnectToBroker("ws://localhost:5000/ws");
+        //    stopWatch.Start();
+        //    await socket.ConnectToBroker("ws://localhost:5000/ws");
 
-            for (int i = 0; i < data.Length; i++)
-            {
-                tasks[i].Start();
-            }
+        //    for (int i = 0; i < data.Length; i++)
+        //    {
+        //        tasks[i].Start();
+        //    }
 
-            stopWatch.Stop();
-            await Task.Delay(2*1000);
-            await socket.CloseConnection();
-            _testOutputHelper.WriteLine($"Time: {stopWatch.ElapsedTicks}");
-        }
+        //    stopWatch.Stop();
+        //    await Task.Delay(2*1000);
+        //    await socket.CloseConnection();
+        //    _testOutputHelper.WriteLine($"Time: {stopWatch.ElapsedTicks}");
+        //}
 
-        [Fact]
-        public async Task ConcurrencyTest2() //TODO Not a fair comparison
-        {
-            var messages = MessageGenerator.GenerateMessages(200);
-            var headers = MessageGenerator.GenerateMessageHeaders(messages, "Topic1", 1);
-            var stopWatch = new Stopwatch();
-            var container = new MessageContainer[headers.Length];
-            var semaphore = new Semaphore(1, 1);
+        //[Fact]
+        //public async Task ConcurrencyTest2() //TODO Not a fair comparison
+        //{
+        //    var messages = MessageGenerator.GenerateMessages(200);
+        //    var headers = MessageGenerator.GenerateMessageHeaders(messages, "Topic1", 1);
+        //    var stopWatch = new Stopwatch();
+        //    var container = new MessageContainer[headers.Length];
+        //    var semaphore = new Semaphore(1, 1);
 
-            for (var i = 0; i < headers.Length; i++)
-            {
-                container[i] = new MessageContainer
-                {
-                    Header = headers[i],
-                    Messages = messages.ToList()
-                };
-            }
+        //    for (var i = 0; i < headers.Length; i++)
+        //    {
+        //        container[i] = new MessageContainer
+        //        {
+        //            Header = headers[i],
+        //            Messages = messages.ToList()
+        //        };
+        //    }
 
-            var data = new byte[headers.Length][];
-            for (int i = 0; i < container.Length; i++)
-            {
-                data[i] = LZ4MessagePackSerializer.Serialize(container[i]);
-            }
+        //    var data = new byte[headers.Length][];
+        //    for (int i = 0; i < container.Length; i++)
+        //    {
+        //        data[i] = LZ4MessagePackSerializer.Serialize(container[i]);
+        //    }
 
-            var tasks = new Task[data.Length];
-            var sockets = new BrokerSocket[data.Length];
+        //    var tasks = new Task[data.Length];
+        //    var sockets = new BrokerSocket[data.Length];
 
 
-            for (int i = 0; i < data.Length; i++)
-            {
-                var i1 = i;
-                sockets[i] = new BrokerSocket();
-                tasks[i] = new Task(async () =>
-                {
-                    await sockets[i1].SendMessage(data[i1]);
-                });
-            }
+        //    for (int i = 0; i < data.Length; i++)
+        //    {
+        //        var i1 = i;
+        //        sockets[i] = new BrokerSocket();
+        //        tasks[i] = new Task(async () =>
+        //        {
+        //            await sockets[i1].SendMessage(data[i1]);
+        //        });
+        //    }
 
-            stopWatch.Start();
-            for (int i = 0; i < data.Length; i++)
-            {
-                await sockets[i].ConnectToBroker("ws://localhost:5000/ws");
-                tasks[i].Start();
-            }
+        //    stopWatch.Start();
+        //    for (int i = 0; i < data.Length; i++)
+        //    {
+        //        await sockets[i].ConnectToBroker("ws://localhost:5000/ws");
+        //        tasks[i].Start();
+        //    }
 
-            stopWatch.Stop();
-            await Task.Delay(2 * 1000);
+        //    stopWatch.Stop();
+        //    await Task.Delay(2 * 1000);
 
-            for (int i = 0; i < data.Length; i++)
-            {
-                await sockets[i].CloseConnection();
-            }
+        //    for (int i = 0; i < data.Length; i++)
+        //    {
+        //        await sockets[i].CloseConnection();
+        //    }
 
-            _testOutputHelper.WriteLine($"Time: {stopWatch.ElapsedTicks}");
-        }
+        //    _testOutputHelper.WriteLine($"Time: {stopWatch.ElapsedTicks}");
+        //}
     }
 }

@@ -7,14 +7,12 @@ using System.Threading.Tasks;
 using dotnet_etcd;
 using MessagePack;
 using Producer.Models.Messages;
-using Producer.Serialization;
 using Prometheus;
 
 namespace Producer.Services
 {
     public class ProducerService : IProducer
     {
-        private readonly ISerializer _serializer;
         private readonly BatchingService _batchingService;
         private HttpClient[] _brokerClients;
         private readonly Dictionary<string, HttpClient> _brokerUrlsDict = new Dictionary<string, HttpClient>();
@@ -38,15 +36,14 @@ namespace Producer.Services
 
         private static readonly Gauge MessageBatchSize = Metrics.CreateGauge("message_batch_size", "The size of the last sent batch.");
 
-        public ProducerService(ISerializer serializer, BatchingService batchingService)
+        public ProducerService(BatchingService batchingService)
         {
-            _serializer = serializer ?? throw new ArgumentNullException(nameof(serializer));
             _batchingService = batchingService ?? throw new ArgumentNullException(nameof(batchingService));
         }
 
         public static async Task<ProducerService> Setup(string etcdConnectionString)
         {
-            var producer = new ProducerService(new Serializer(), new BatchingService(Variables.BatchingSizeVariable));
+            var producer = new ProducerService(new BatchingService(Variables.BatchingSizeVariable));
             var etcdClient = new EtcdClient(etcdConnectionString);
             await producer.InitSockets(etcdClient);
 

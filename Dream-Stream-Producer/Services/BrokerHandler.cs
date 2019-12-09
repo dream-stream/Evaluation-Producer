@@ -94,7 +94,7 @@ namespace Producer.Services
                 Console.WriteLine("Resized brokerUrls");
             }
             var connectionString = Variables.IsDev ? "http://localhost:5041/" : $"http://{brokerName}.broker.default.svc.cluster.local/";
-            var httpClient = new HttpClient { BaseAddress = new Uri(connectionString) };
+            var httpClient = new HttpClient { BaseAddress = new Uri(connectionString), Timeout = TimeSpan.FromSeconds(5)};
             brokerHttpClients[brokerNumber] = httpClient;
             Console.WriteLine($"Added Broker {brokerName}");
             PrintBrokerHttpClients(brokerHttpClients);

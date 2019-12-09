@@ -18,7 +18,7 @@ namespace Evaluation_Producer
             LabelNames = new []{ "ApplicationType" }
         });
 
-        private static readonly Counter MessagesPublished = Metrics.CreateCounter("messages_published", "The amount of messages published from the producer.", new CounterConfiguration
+        private static readonly Counter MessagesPublished = Metrics.CreateCounter("main_messages_published", "The amount of messages published from the producer.", new CounterConfiguration
         {
             LabelNames = new[] { "ApplicationType" }
         });
@@ -138,17 +138,30 @@ namespace Evaluation_Producer
             var producer = await ProducerService.Setup("http://etcd");
             var messageHeaders = await producer.GetMessageHeaders(messages, topic);
             var stopwatch = new Stopwatch();
+            var lastRun = -1;
             while (true)
             {
-                stopwatch.Reset();
-                stopwatch.Start();
-                for (var i = 0; i < messageHeaders.Length; i++)
+                var time = DateTime.Now;
+                var load = 1;
+                var lastDigit = time.Minute % 10;
+                if (lastDigit >= 5)
+                    load = 2;
+
+                if (time.Second % load == 0 && time.Second != lastRun)
                 {
-                    await producer.Publish(messageHeaders[i], messages[i]);
+                    lastRun = time.Second;
+
+                    stopwatch.Reset();
+                    stopwatch.Start();
+                    for (var i = 0; i < messageHeaders.Length; i++)
+                    {
+                        await producer.Publish(messageHeaders[i], messages[i]);
+                    }
+                    stopwatch.Stop();
+                    ProducerRunTime.WithLabels("Dream-Stream").Set(stopwatch.ElapsedMilliseconds);
+                    MessagesPublished.WithLabels("Dream-Stream").Inc(messages.Length);
                 }
-                stopwatch.Stop();
-                ProducerRunTime.WithLabels("Dream-Stream").Set(stopwatch.ElapsedMilliseconds);
-                MessagesPublished.WithLabels("Dream-Stream").Inc(messages.Length);
+
                 await Task.Delay(delay); //Delay added for test of timer on batches
             }
         }

@@ -19,13 +19,18 @@ namespace Producer.Services
         private const int MaxRetries = 5;
         private readonly Semaphore _brokerSocketHandlerLock = new Semaphore(1,1);
 
-        private static readonly Counter MessagesBatched = Metrics.CreateCounter("messages_batched", "Number of messages added to batch.", new CounterConfiguration
+        private static readonly Counter MessagesPublished = Metrics.CreateCounter("messages_published", "Number of messages added to batch.", new CounterConfiguration
         {
             LabelNames = new []{"TopicPartition"}
         });
-        private static readonly Counter MessageBatchesSent = Metrics.CreateCounter("message_batches_sent", "Number of batches sent.", new CounterConfiguration
+        private static readonly Counter BatchMessagesPublished = Metrics.CreateCounter("batch_messages_published", "Number of batches sent.", new CounterConfiguration
         {
             LabelNames = new[] { "BrokerConnection" }
+        });
+
+        private static readonly Counter MessagesPublishedSizeInBytes = Metrics.CreateCounter("messages_published_size_in_bytes", "", new CounterConfiguration
+        {
+            LabelNames = new[] { "TopicPartition" }
         });
 
         private static readonly Gauge MessageBatchSize = Metrics.CreateGauge("message_batch_size", "The size of the last sent batch.");
@@ -123,11 +128,13 @@ namespace Producer.Services
                 var message = _serializer.Serialize<IMessage>(messages);
                 await brokerSocket.SendMessage(message);
                 //Console.WriteLine($"Sent batched messages to socket {brokerSocket.ConnectedTo} with topic {header.Topic} with partition {header.Partition}");
-                MessagesBatched.WithLabels($"{header.Topic}/{header.Partition}").Inc(messages.Messages.Count);
+                MessagesPublished.WithLabels($"{header.Topic}/{header.Partition}").Inc(messages.Messages.Count);
+                MessagesPublishedSizeInBytes.WithLabels($"{header.Topic}/{header.Partition}").Inc(message.Length);
                 MessageBatchSize.Set(messages.Messages.Count);
 
-                MessageBatchesSent.WithLabels(brokerSocket.ConnectedTo).Inc();
-                MessageBatchesSent.WithLabels($"{header.Topic}/{header.Partition}").Inc();
+                BatchMessagesPublished.WithLabels(brokerSocket.ConnectedTo).Inc();
+                BatchMessagesPublished.WithLabels($"{header.Topic}/{header.Partition}").Inc();
+
                 return true;
             }
 

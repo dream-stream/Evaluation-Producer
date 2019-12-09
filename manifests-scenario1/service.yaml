@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: evaluation-producer
+  labels:
+    app: evaluation-producer
+    k8s-app: prometheus
+spec:
+  ports:
+  - port: 80
+    name: web
+  selector:
+    app: evaluation-producer
+  type: ClusterIP

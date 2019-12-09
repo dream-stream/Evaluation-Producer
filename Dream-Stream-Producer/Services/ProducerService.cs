@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using dotnet_etcd;
@@ -16,7 +18,7 @@ namespace Producer.Services
         private BrokerSocket[] _brokerSockets;
         private readonly Dictionary<string, BrokerSocket> _brokerSocketsDict = new Dictionary<string, BrokerSocket>();
         private EtcdClient _client;
-        private const int MaxRetries = 5;
+        private const int MaxRetries = 10;
         private readonly Semaphore _brokerSocketHandlerLock = new Semaphore(1,1);
 
         private static readonly Counter MessagesPublished = Metrics.CreateCounter("messages_published", "Number of messages added to batch.", new CounterConfiguration
@@ -113,9 +115,16 @@ namespace Producer.Services
             var retries = 0;
             while (retries < MaxRetries)
             {
-                if (await SendMessage(messages, header)) break;
-                Console.WriteLine($"SendMessage retry {++retries}");
-                Thread.Sleep(500 * retries);
+                try
+                {
+                    if (await SendMessage(messages, header)) break;
+                    Console.WriteLine($"SendMessage retry {++retries}");
+                    Thread.Sleep(500 * retries);
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine($"Failed to send, probably a repartitioning - {e.Message}");
+                }
             }
         }
 

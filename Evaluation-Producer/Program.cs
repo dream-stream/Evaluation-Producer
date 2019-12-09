@@ -139,21 +139,18 @@ namespace Evaluation_Producer
             var messageHeaders = await producer.GetMessageHeaders(messages, topic);
             var stopwatch = new Stopwatch();
             var lastRun = -1;
+            
             while (true)
             {
                 var time = DateTime.Now;
-                var load = 1;
-                var lastDigit = time.Minute % 10;
-                if (lastDigit >= 5)
-                    load = 2;
-
-                if (time.Second % load == 0 && time.Second != lastRun)
+                if (time.Second != lastRun)
                 {
+                    var loadPercentage = EnvironmentVariables.Scenario[time.Minute];
                     lastRun = time.Second;
 
                     stopwatch.Reset();
                     stopwatch.Start();
-                    for (var i = 0; i < messageHeaders.Length; i++)
+                    for (var i = 0; i < messageHeaders.Length/100*loadPercentage; i++)
                     {
                         await producer.Publish(messageHeaders[i], messages[i]);
                     }

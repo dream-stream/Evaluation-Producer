@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 
 namespace Evaluation_Producer
 {
@@ -9,9 +10,17 @@ namespace Evaluation_Producer
             AmountOfMessagesVariable = int.Parse(Environment.GetEnvironmentVariable("MESSAGE_AMOUNT") ?? "1000");
             BatchingSizeVariable = int.Parse(Environment.GetEnvironmentVariable("BATCHING_SIZE") ?? "23");
             BatchTimerVariable = int.Parse(Environment.GetEnvironmentVariable("BATCH_TIMER") ?? "10");
-            ApplicationType = Environment.GetEnvironmentVariable("APPLICATION_TYPE") ?? "NOT_SET";
+            ApplicationType = Environment.GetEnvironmentVariable("APPLICATION_TYPE") ?? "Dream-Stream";
             TopicName = Environment.GetEnvironmentVariable("TOPIC_NAME") ?? "Topic";
             DelayInMillisecond = int.Parse(Environment.GetEnvironmentVariable("DELAY_IN_MILLISECOND") ?? "15000");
+            Scenario = (Environment.GetEnvironmentVariable("SCENARIO") ??
+                @"100,100,100,100,100,100,100,100,100,100,
+                  100,100,100,100,100,100,100,100,100,100,
+                  100,100,100,100,100,100,100,100,100,100,
+                  100,100,100,100,100,100,100,100,100,100,
+                  100,100,100,100,100,100,100,100,100,100,
+                  100,100,100,100,100,100,100,100,100,100")
+                .Split(',').Select(n => Convert.ToInt32(n)).ToArray();
         }
 
         public static void PrintProperties()
@@ -22,6 +31,7 @@ namespace Evaluation_Producer
         }
 
         public static string TopicName { get; set; }
+        public static int[] Scenario { get; set; }
 
         public static int AmountOfMessagesVariable { get; set; }
         public static int BatchingSizeVariable { get; set; } 

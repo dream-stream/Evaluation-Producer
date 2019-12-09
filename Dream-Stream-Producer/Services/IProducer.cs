@@ -7,6 +7,5 @@ namespace Producer.Services
     public interface IProducer
     {
         Task Publish(MessageHeader header, Message message);
-        Task CloseConnections();
     }
 }

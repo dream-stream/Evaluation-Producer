@@ -22,7 +22,6 @@ namespace Producer
             _producer = await ProducerService.Setup("http://localhost");
             var messages = MessageGenerator.GenerateMessages(Variables.AmountOfMessagesVariable);
             var messageHeaders = await _producer.GetMessageHeaders(messages, topic);
-            AppDomain.CurrentDomain.ProcessExit += ShutdownFunction;
             
             while (_run)
             {
@@ -39,13 +38,6 @@ namespace Producer
 
                 await Task.Delay(500); //Delay added for test of timer on batches
             }
-        }
-
-        private static async void ShutdownFunction(object sender, EventArgs e)
-        {
-            _run = false;
-            await _producer.CloseConnections();
-            Console.WriteLine("Process is exiting!");
         }
     }
 }

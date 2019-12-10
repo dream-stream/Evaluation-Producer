@@ -34,8 +34,6 @@ namespace Producer.Services
             LabelNames = new[] { "TopicPartition" }
         });
 
-        private static readonly Gauge MessageBatchSize = Metrics.CreateGauge("message_batch_size", "The size of the last sent batch.");
-
         public ProducerService(BatchingService batchingService)
         {
             _batchingService = batchingService ?? throw new ArgumentNullException(nameof(batchingService));
@@ -124,6 +122,10 @@ namespace Producer.Services
 
                 await client.PostAsync($"api/Broker?topic={header.Topic}&partition={header.Partition}&length={data.Length}&messageAmount={messages.Messages.Count}", 
                     new StreamContent(new MemoryStream(data)));
+
+                BatchMessagesPublished.WithLabels($"{header.Topic}/{header.Partition}").Inc();
+                MessagesPublished.WithLabels($"{header.Topic}/{header.Partition}").Inc(messages.Messages.Count);
+                MessagesPublishedSizeInBytes.WithLabels($"{header.Topic}/{header.Partition}").Inc(data.Length);
 
                 return true;
             }

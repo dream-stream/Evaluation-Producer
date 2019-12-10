@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using System.Text.Json;
 using System.Threading.Tasks;
 using Confluent.Kafka;
 using MessagePack;
@@ -59,7 +58,6 @@ namespace Evaluation_Producer
 
             var stopwatch = new Stopwatch();
             var lastRun = -1;
-            const int kafkaSlowFactor = 4;
 
             using var p = new ProducerBuilder<string, Message>(config).SetValueSerializer(new MySerializer()).Build();
             while (true)
@@ -72,7 +70,7 @@ namespace Evaluation_Producer
 
                     stopwatch.Reset();
                     stopwatch.Start();
-                    for (var i = 0; i < (messages.Length / 100 * loadPercentage) / kafkaSlowFactor; i++)
+                    for (var i = 0; i < (messages.Length / 100 * loadPercentage); i++)
                     {
                         p.Produce(topicName, new Message<string, Message> { Key = messages[i].Address, Value = messages[i] }, KafkaProduceHandler);
                     }
@@ -104,43 +102,6 @@ namespace Evaluation_Producer
             };
             return config;
         }
-
-        private static async Task KafkaAwait(Message[] messages, string topicName)
-        {
-            var delay = EnvironmentVariables.DelayInMillisecond;
-            var config = KafkaConfig();
-
-            using var producer = new ProducerBuilder<string, string>(config).Build();
-            var stopwatch = new Stopwatch();
-            ProducerRunTime.WithLabels("Kafka").Set(0);
-            MessagesPublished.WithLabels("Kafka").Inc(0);
-            while (true)
-            {
-                stopwatch.Reset();
-                stopwatch.Start();
-                foreach (var message in messages)
-                {
-                    try
-                    {
-                        var dr = await producer.ProduceAsync(topicName, new Message<string, string> { Key = message.Address, Value = JsonSerializer.Serialize(message) });
-                        //Console.WriteLine($"Delivered '{dr.Value}' to '{dr.TopicPartitionOffset}'");
-                    }
-                    catch (ProduceException<Null, string> e)
-                    {
-                        Console.WriteLine($"Delivery failed Null: {e.Error.Reason}");
-                    }
-                    catch (ProduceException<string, string> e)
-                    {
-                        Console.WriteLine($"Delivery failed string: {e.Error.Reason}");
-                    }
-                }
-                stopwatch.Stop();
-                ProducerRunTime.WithLabels("Kafka").Set(stopwatch.ElapsedMilliseconds);
-                MessagesPublished.WithLabels("Kafka").Inc(messages.Length);
-                await Task.Delay(delay); //Delay added for test of timer on batches
-            }
-        }
-
 
         private static async Task DreamStream(Message[] messages, string topic)
         {

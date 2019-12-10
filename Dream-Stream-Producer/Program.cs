@@ -15,7 +15,7 @@ namespace Producer
         {
             Variables.AmountOfMessagesVariable = 100000;
             Variables.BatchTimerVariable = 20;
-            Variables.BatchingSizeVariable = 40000;
+            Variables.BatchingSizeVariable = 10000;
             Variables.IsDev = true;
             const string topic = "Topic3";
 
@@ -36,7 +36,7 @@ namespace Producer
                 sw.Stop();
                 Console.WriteLine($"Sent messages in elapsed in {sw.ElapsedMilliseconds} milliseconds");
 
-                await Task.Delay(500); //Delay added for test of timer on batches
+                await Task.Delay(1000); //Delay added for test of timer on batches
             }
         }
     }

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Confluent.Kafka;
@@ -155,10 +156,11 @@ namespace Evaluation_Producer
 
                     stopwatch.Reset();
                     stopwatch.Start();
-                    for (var i = 0; i < messageHeaders.Length/100*loadPercentage; i++)
-                    {
-                        await producer.Publish(messageHeaders[i], messages[i]);
-                    }
+
+                    var tasks = Enumerable.Range(0, messageHeaders.Length / 100 * loadPercentage)
+                        .Select(i => producer.Publish(messageHeaders[i], messages[i]));
+                    await Task.WhenAll(tasks);
+
                     stopwatch.Stop();
                     ProducerRunTime.WithLabels("Dream-Stream").Set(stopwatch.ElapsedMilliseconds);
                     MessagesPublished.WithLabels("Dream-Stream").Inc(messages.Length);

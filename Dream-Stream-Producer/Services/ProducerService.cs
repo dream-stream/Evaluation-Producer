@@ -74,28 +74,25 @@ namespace Producer.Services
             });
         }
 
-        public Task Publish(MessageHeader header, Message message)
+        public async Task Publish(MessageHeader header, Message message)
         {
             
             if (_batchingService.TryBatchMessage(header, message, out var queueFull))
             {
-                if (queueFull == null) return Task.CompletedTask;
+                if (queueFull == null) return;
                 var messages = _batchingService.GetMessages(queueFull);
-                ThreadPool.QueueUserWorkItem(async x => await TryToSendWithRetries(header, messages));
-
-                return Task.CompletedTask;
+                ThreadPool.QueueUserWorkItem(async x => await SendMessage(header, messages));
+                return;
             }
 
             var callback = new TimerCallback(async x =>
             {
                 var messages = _batchingService.GetMessages(header);
-                await TryToSendWithRetries(header, messages);
+                await SendMessage(header, messages);
             });
-            var timer = new Timer(callback, null, TimeSpan.FromSeconds(Variables.BatchTimerVariable), TimeSpan.FromSeconds(Variables.BatchTimerVariable));
+            var timer = new Timer(callback, null, Timeout.Infinite, Timeout.Infinite);//TimeSpan.FromSeconds(Variables.BatchTimerVariable), TimeSpan.FromSeconds(Variables.BatchTimerVariable));
 
             _batchingService.CreateBatch(header, message, timer);
-            
-            return Task.CompletedTask;
         }
 
         private async Task TryToSendWithRetries(MessageHeader header, MessageContainer messages)
@@ -105,7 +102,7 @@ namespace Producer.Services
             {
                 try
                 {
-                    if (await SendMessage(messages, header)) break;
+                    if (await SendMessage(header, messages)) break;
                     Console.WriteLine($"SendMessage retry {++retries}");
                     Thread.Sleep(500 * retries);
                 }
@@ -116,7 +113,7 @@ namespace Producer.Services
             }
         }
 
-        private async Task<bool> SendMessage(MessageContainer messages, MessageHeader header)
+        private async Task<bool> SendMessage(MessageHeader header, MessageContainer messages)
         {
             if (_brokerUrlsDict.TryGetValue($"{header.Topic}/{header.Partition}", out var client))
             {

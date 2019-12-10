@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
       - name: evaluation-producer-kafka
-        image: dreamstream/evaluation-producer:V11
+        image: dreamstream/evaluation-producer:V26
         imagePullPolicy: Always
         ports:
         - containerPort: 80
@@ -30,6 +30,6 @@ spec:
         - name: APPLICATION_TYPE
           value: "Kafka"
         - name: TOPIC_NAME
-          value: "Topic3"
+          value: "Topic4"
         - name: DELAY_IN_MILLISECOND
           value: "15000"

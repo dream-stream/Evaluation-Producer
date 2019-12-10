@@ -1,9 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Confluent.Kafka;
+using MessagePack;
+using Microsoft.Hadoop.Avro;
 using Producer;
 using Producer.Models.Messages;
 using Producer.Services;
@@ -57,14 +60,14 @@ namespace Evaluation_Producer
 
             var stopwatch = new Stopwatch();
 
-            using var p = new ProducerBuilder<string, string>(config).Build();
+            using var p = new ProducerBuilder<string, Message>(config).SetValueSerializer(new MySerializer()).Build();
             while (true)
             {
                 stopwatch.Reset();
                 stopwatch.Start();
                 foreach (var message in messages)
                 {
-                    p.Produce(topicName, new Message<string, string> {Key = message.Address, Value = JsonSerializer.Serialize(message)}, KafkaProduceHandler);
+                    p.Produce(topicName, new Message<string, Message> {Key = message.Address, Value = message}, KafkaProduceHandler);
                 }
 
                 stopwatch.Stop();
@@ -77,7 +80,7 @@ namespace Evaluation_Producer
             }
         }
 
-        private static void KafkaProduceHandler(DeliveryReport<string, string> r)
+        private static void KafkaProduceHandler(DeliveryReport<string, Message> r)
         {
             Console.WriteLine(!r.Error.IsError ? $"Delivered message to {r.TopicPartitionOffset}" : $"Delivery Error: {r.Error.Reason}");
         }
@@ -161,6 +164,14 @@ namespace Evaluation_Producer
 
                 await Task.Delay(delay); //Delay added for test of timer on batches
             }
+        }
+    }
+
+    internal class MySerializer : ISerializer<Message>
+    {
+        public byte[] Serialize(Message data, SerializationContext context)
+        {
+            return LZ4MessagePackSerializer.Serialize(data);
         }
     }
 }

@@ -74,26 +74,28 @@ namespace Producer.Services
             });
         }
 
-        public async Task Publish(MessageHeader header, Message message)
+        public Task Publish(MessageHeader header, Message message)
         {
             
             if (_batchingService.TryBatchMessage(header, message, out var queueFull))
             {
-                if (queueFull == null) return;
+                if (queueFull == null) return Task.CompletedTask;
                 var messages = _batchingService.GetMessages(queueFull);
-                await TryToSendWithRetries(header, messages);
+                Task.Run(async () => await TryToSendWithRetries(header, messages));
 
-                return;
+                return Task.CompletedTask;
             }
 
             var callback = new TimerCallback(async x =>
             {
                 var messages = _batchingService.GetMessages(header);
-                await TryToSendWithRetries(header, messages);
+                Task.Run(async () => await TryToSendWithRetries(header, messages));
             });
             var timer = new Timer(callback, null, TimeSpan.FromSeconds(Variables.BatchTimerVariable), TimeSpan.FromSeconds(Variables.BatchTimerVariable));
 
             _batchingService.CreateBatch(header, message, timer);
+            
+            return Task.CompletedTask;
         }
 
         private async Task TryToSendWithRetries(MessageHeader header, MessageContainer messages)

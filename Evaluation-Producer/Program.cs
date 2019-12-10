@@ -82,7 +82,9 @@ namespace Evaluation_Producer
 
         private static void KafkaProduceHandler(DeliveryReport<string, Message> r)
         {
-            Console.WriteLine(!r.Error.IsError ? $"Delivered message to {r.TopicPartitionOffset}" : $"Delivery Error: {r.Error.Reason}");
+            //Console.WriteLine($"Delivered message to {r.TopicPartitionOffset}");
+            if(r.Error.IsError)
+                Console.WriteLine($"Delivery Error: {r.Error.Reason}");
         }
 
         private static ProducerConfig KafkaConfig()

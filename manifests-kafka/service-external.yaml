@@ -4,7 +4,6 @@ metadata:
   name: evaluation-producer-kafka-external
   labels:
     app: evaluation-producer-kafka
-    k8s-app: prometheus
 spec:
   ports:
   - port: 80

@@ -1,12 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Confluent.Kafka;
 using MessagePack;
-using Microsoft.Hadoop.Avro;
 using Producer;
 using Producer.Models.Messages;
 using Producer.Services;
@@ -59,24 +57,30 @@ namespace Evaluation_Producer
             var config = KafkaConfig();
 
             var stopwatch = new Stopwatch();
+            var lastRun = -1;
+            const int kafkaSlowFactor = 4;
 
             using var p = new ProducerBuilder<string, Message>(config).SetValueSerializer(new MySerializer()).Build();
             while (true)
             {
-                stopwatch.Reset();
-                stopwatch.Start();
-                foreach (var message in messages)
+                var time = DateTime.Now;
+                if (time.Second != lastRun)
                 {
-                    p.Produce(topicName, new Message<string, Message> {Key = message.Address, Value = message}, KafkaProduceHandler);
+                    var loadPercentage = EnvironmentVariables.Scenario[time.Minute];
+                    lastRun = time.Second;
+
+                    stopwatch.Reset();
+                    stopwatch.Start();
+                    for (var i = 0; i < (messages.Length / 100 * loadPercentage) / kafkaSlowFactor; i++)
+                    {
+                        p.Produce(topicName, new Message<string, Message> { Key = messages[i].Address, Value = messages[i] }, KafkaProduceHandler);
+                    }
+                    stopwatch.Stop();
+                    ProducerRunTime.WithLabels("Dream-Stream").Set(stopwatch.ElapsedMilliseconds);
+                    MessagesPublished.WithLabels("Dream-Stream").Inc(messages.Length);
                 }
 
-                stopwatch.Stop();
-                ProducerRunTime.WithLabels("Kafka").Set(stopwatch.ElapsedMilliseconds);
-                MessagesPublished.WithLabels("Kafka").Inc(messages.Length);
-                // wait for any inflight messages to be delivered.
-                p.Flush();
                 await Task.Delay(delay); //Delay added for test of timer on batches
-
             }
         }
 
@@ -92,7 +96,11 @@ namespace Evaluation_Producer
             var list = new List<string>();
             for (var i = 0; i < 3; i++) list.Add($"kf-kafka-{i}.kf-hs-kafka.default.svc.cluster.local:9093");
             var bootstrapServers = string.Join(',', list);
-            var config = new ProducerConfig {BootstrapServers = bootstrapServers};
+            var config = new ProducerConfig
+            {
+                BootstrapServers = bootstrapServers,
+                LingerMs = 100
+            };
             return config;
         }
 
@@ -113,8 +121,7 @@ namespace Evaluation_Producer
                 {
                     try
                     {
-                        var dr = await producer.ProduceAsync(topicName,
-                            new Message<string, string> { Key = message.Address, Value = JsonSerializer.Serialize(message) });
+                        var dr = await producer.ProduceAsync(topicName, new Message<string, string> { Key = message.Address, Value = JsonSerializer.Serialize(message) });
                         //Console.WriteLine($"Delivered '{dr.Value}' to '{dr.TopicPartitionOffset}'");
                     }
                     catch (ProduceException<Null, string> e)

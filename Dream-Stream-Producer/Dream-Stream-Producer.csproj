@@ -16,7 +16,6 @@
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="3.0.0" />
     <PackageReference Include="dotnet-etcd" Version="3.0.0.1-beta" />
     <PackageReference Include="prometheus-net.AspNetCore" Version="3.2.1" />
-    <PackageReference Include="Microsoft.Hadoop.Avro" Version="1.5.6" />
   </ItemGroup>
 
   <ItemGroup>

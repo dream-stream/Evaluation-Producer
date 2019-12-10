@@ -81,7 +81,7 @@ namespace Producer.Services
             {
                 if (queueFull == null) return Task.CompletedTask;
                 var messages = _batchingService.GetMessages(queueFull);
-                Task.Run(async () => await TryToSendWithRetries(header, messages));
+                ThreadPool.QueueUserWorkItem(async x => await TryToSendWithRetries(header, messages));
 
                 return Task.CompletedTask;
             }
@@ -89,7 +89,7 @@ namespace Producer.Services
             var callback = new TimerCallback(async x =>
             {
                 var messages = _batchingService.GetMessages(header);
-                Task.Run(async () => await TryToSendWithRetries(header, messages));
+                await TryToSendWithRetries(header, messages);
             });
             var timer = new Timer(callback, null, TimeSpan.FromSeconds(Variables.BatchTimerVariable), TimeSpan.FromSeconds(Variables.BatchTimerVariable));
 

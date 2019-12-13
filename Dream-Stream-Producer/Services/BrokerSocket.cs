@@ -7,9 +7,9 @@ namespace Producer.Services
 {
     public class BrokerSocket
     {
-        private readonly ClientWebSocket _clientWebSocket;
-        private readonly Semaphore _lock;
-
+        private ClientWebSocket _clientWebSocket;
+        private readonly SemaphoreSlim _lock;
+        
         public string ConnectedTo { get; set; }
 
         private const int MaxRetries = 15;
@@ -18,8 +18,7 @@ namespace Producer.Services
         {
             _clientWebSocket = new ClientWebSocket();
             _clientWebSocket.Options.SetBuffer(1024 * 1000, 1024 * 1000);
-            _clientWebSocket.Options.KeepAliveInterval = TimeSpan.FromSeconds(30);
-            _lock = new Semaphore(1, 1);
+            _lock = new SemaphoreSlim(1, 1);
         }
 
         public async Task ConnectToBroker(string connectionString)
@@ -34,10 +33,18 @@ namespace Producer.Services
                     ConnectedTo = connectionString;
                     break;
                 }
+                catch (InvalidOperationException e)
+                {
+                    if (_clientWebSocket.State != WebSocketState.Open)
+                        await _clientWebSocket.ConnectAsync(new Uri(ConnectedTo), CancellationToken.None);
+                    break;
+                }
                 catch (Exception e)
                 {
                     Console.WriteLine(e);
-                    if (retries++ > MaxRetries) throw new Exception($"Failed to connect to WebSocket {connectionString} after {retries} retries.", e);
+                    _clientWebSocket.Dispose();
+                    _clientWebSocket = new ClientWebSocket();
+                    if (++retries > MaxRetries) throw new Exception($"Failed to connect to WebSocket {connectionString} after {retries} retries.", e);
                     Console.WriteLine($"Trying to connect to {connectionString} retry {retries}");
                     Thread.Sleep(500 * retries);
                 }
@@ -46,7 +53,7 @@ namespace Producer.Services
 
         public async Task SendMessage(byte[] message)
         {
-            _lock.WaitOne();
+            await _lock.WaitAsync();
             try
             {
                 await _clientWebSocket.SendAsync(new ArraySegment<byte>(message, 0, message.Length),
@@ -58,7 +65,7 @@ namespace Producer.Services
             }
         }
 
-        public async Task CloseConnection()
+        public async Task DeleteConnection()
         {
             try
             {

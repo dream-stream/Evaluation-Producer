@@ -113,7 +113,7 @@ namespace UnitTest
 
             stopWatch.Stop();
             await Task.Delay(2*1000);
-            await socket.CloseConnection();
+            await socket.DeleteConnection();
             _testOutputHelper.WriteLine($"Time: {stopWatch.ElapsedTicks}");
         }
 
@@ -167,7 +167,7 @@ namespace UnitTest
 
             for (int i = 0; i < data.Length; i++)
             {
-                await sockets[i].CloseConnection();
+                await sockets[i].DeleteConnection();
             }
 
             _testOutputHelper.WriteLine($"Time: {stopWatch.ElapsedTicks}");

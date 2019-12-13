@@ -40,8 +40,17 @@ namespace Producer.Services
                 throw new KeyNotFoundException(
                     $"Messages for {nameof(header.Topic)}: {header.Topic} and {nameof(header.Partition)}: {header.Partition} not found");
             
-            var returnList = new MessageContainer {Header = header, Messages = new List<Message>(list.MessageContainer.Messages)};
-            list.MessageContainer.Messages.Clear();
+            var len = list.MessageContainer.Messages.Count;
+            var returnList = new MessageContainer {Header = header, Messages = new List<Message>(list.MessageContainer.Messages.GetRange(0, len))};
+            try
+            {
+                list.MessageContainer.Messages.RemoveRange(0, len);
+            }
+            catch
+            {
+                Console.WriteLine("List already cleared");
+            }
+
             list.Timer.Change(Timeout.Infinite, Timeout.Infinite);
             return returnList;
         }

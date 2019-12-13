@@ -1,5 +1,5 @@
 using System;
-using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.IO;
 using System.Net.Sockets;
 using System.Threading;
@@ -16,7 +16,7 @@ namespace Producer.Services
         private readonly ISerializer _serializer;
         private readonly BatchingService _batchingService;
         private BrokerSocket[] _brokerSockets;
-        private readonly Dictionary<string, BrokerSocket> _brokerSocketsDict = new Dictionary<string, BrokerSocket>();
+        private readonly ConcurrentDictionary<string, BrokerSocket> _brokerSocketsDict = new ConcurrentDictionary<string, BrokerSocket>();
         private EtcdClient _client;
         private const int MaxRetries = 10;
         private readonly Semaphore _brokerSocketHandlerLock = new Semaphore(1,1);
@@ -36,6 +36,7 @@ namespace Producer.Services
         });
 
         private static readonly Gauge MessageBatchSize = Metrics.CreateGauge("message_batch_size", "The size of the last sent batch.");
+        private bool _taken;
 
         public ProducerService(ISerializer serializer, BatchingService batchingService)
         {
@@ -83,19 +84,18 @@ namespace Producer.Services
             foreach (var brokerSocket in _brokerSockets)
             {
                 if (brokerSocket != null)
-                    await brokerSocket.CloseConnection();
+                    await brokerSocket.DeleteConnection();
             }
             _client.Dispose();
         }
 
         public async Task Publish(MessageHeader header, Message message)
         {
-            
             if (_batchingService.TryBatchMessage(header, message, out var queueFull))
             {
                 if (queueFull == null) return;
                 var messages = _batchingService.GetMessages(queueFull);
-                await SendMessage(header, messages);
+                await TryToSendWithRetries(header, messages);
 
                 return;
             }
@@ -119,7 +119,7 @@ namespace Producer.Services
                 {
                     if (await SendMessage(header, messages)) break;
                     Console.WriteLine($"SendMessage retry {++retries}");
-                    Thread.Sleep(500 * retries);
+                    await Task.Delay(500 * retries);
                 }
                 catch (Exception e)
                 {
@@ -130,24 +130,54 @@ namespace Producer.Services
 
         private async Task<bool> SendMessage(MessageHeader header, MessageContainer messages)
         {
-            if (_brokerSocketsDict.TryGetValue($"{header.Topic}/{header.Partition}", out var brokerSocket))
+            try
             {
-                if(brokerSocket == null) throw new Exception("Failed to get brokerSocket");
-                if(!brokerSocket.IsOpen()) return false;
-                var message = _serializer.Serialize<IMessage>(messages);
-                await brokerSocket.SendMessage(message);
-                //Console.WriteLine($"Sent batched messages to socket {brokerSocket.ConnectedTo} with topic {header.Topic} with partition {header.Partition}");
-                MessagesPublished.WithLabels($"{header.Topic}/{header.Partition}").Inc(messages.Messages.Count);
-                MessagesPublishedSizeInBytes.WithLabels($"{header.Topic}/{header.Partition}").Inc(message.Length);
-                MessageBatchSize.Set(messages.Messages.Count);
+                if (_brokerSocketsDict.TryGetValue($"{header.Topic}/{header.Partition}", out var brokerSocket))
+                {
+                    if (brokerSocket == null) throw new Exception("Failed to get brokerSocket");
+                    if (!brokerSocket.IsOpen())
+                    {
+                        await ForceUpdateBrokers();
+                        return false;
+                    }
+                    var message = _serializer.Serialize<IMessage>(messages);
+                    await brokerSocket.SendMessage(message);
+                    //Console.WriteLine($"Sent batched messages to socket {brokerSocket.ConnectedTo} with topic {header.Topic} with partition {header.Partition}");
+                    MessagesPublished.WithLabels($"{header.Topic}/{header.Partition}").Inc(messages.Messages.Count);
+                    MessagesPublishedSizeInBytes.WithLabels($"{header.Topic}/{header.Partition}").Inc(message.Length);
+                    MessageBatchSize.Set(messages.Messages.Count);
 
-                BatchMessagesPublished.WithLabels(brokerSocket.ConnectedTo).Inc();
-                BatchMessagesPublished.WithLabels($"{header.Topic}/{header.Partition}").Inc();
+                    BatchMessagesPublished.WithLabels(brokerSocket.ConnectedTo).Inc();
+                    BatchMessagesPublished.WithLabels($"{header.Topic}/{header.Partition}").Inc();
 
-                return true;
+                    return true;
+                }
+
+                Console.WriteLine("Failed to send message");
             }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
 
+                await ForceUpdateBrokers();
+                return false;
+            }
+            
             throw new Exception("Failed to get brokerSocket");
+        }
+
+        private async Task ForceUpdateBrokers()
+        {
+            if (_taken == false)
+            {
+                _taken = true;
+                _brokerSockets = await BrokerSocketHandler.UpdateBrokerSockets(_client, _brokerSockets);
+                if (_brokerSockets.Length == 0)
+                    _brokerSocketsDict.Clear();
+                else
+                    await BrokerSocketHandler.UpdateBrokerSocketsDictionary(_client, _brokerSocketsDict, _brokerSockets);
+                _taken = false;
+            }
         }
     }
 }

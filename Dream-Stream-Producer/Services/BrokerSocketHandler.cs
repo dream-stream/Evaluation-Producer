@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -15,13 +16,18 @@ namespace Producer.Services
         public static async Task<BrokerSocket[]> UpdateBrokerSockets(EtcdClient client, BrokerSocket[] brokerSockets)
         {
             var rangeResponse = await client.GetRangeValAsync(BrokerTablePrefix);
+            if (rangeResponse.Count == 0)
+            {
+                Console.WriteLine("No brokers connected");
+                return new BrokerSocket[]{};
+            }
             var maxBrokerNumber = rangeResponse.Keys.Max(GetBrokerNumber);
             brokerSockets = new BrokerSocket[maxBrokerNumber + 1];
             foreach (var (key, _) in rangeResponse) await AddBroker(key, brokerSockets);
             return brokerSockets;
         }
 
-        public static async Task UpdateBrokerSocketsDictionary(EtcdClient client, Dictionary<string, BrokerSocket> brokerSocketsDict, BrokerSocket[] brokerSockets)
+        public static async Task UpdateBrokerSocketsDictionary(EtcdClient client, ConcurrentDictionary<string, BrokerSocket> brokerSocketsDict, BrokerSocket[] brokerSockets)
         {
             var rangeVal = await client.GetRangeValAsync(TopicTablePrefix);
             foreach (var (key, value) in rangeVal) AddToBrokerSocketsDictionary(brokerSocketsDict, brokerSockets, key, value);
@@ -55,7 +61,7 @@ namespace Producer.Services
             return brokerSockets;
         }
 
-        public static void TopicTableChangedHandler(WatchEvent[] watchEvents, Dictionary<string, BrokerSocket> brokerSocketsDict, BrokerSocket[] brokerSockets)
+        public static void TopicTableChangedHandler(WatchEvent[] watchEvents, ConcurrentDictionary<string, BrokerSocket> brokerSocketsDict, BrokerSocket[] brokerSockets)
         {
             foreach (var watchEvent in watchEvents)
             {
@@ -77,7 +83,7 @@ namespace Producer.Services
         public static async Task<BrokerSocket[]> RemoveBroker(WatchEvent watchEvent, BrokerSocket[] brokerSockets)
         {
             var brokerNumber = GetBrokerNumber(watchEvent.Key);
-            await brokerSockets[brokerNumber].CloseConnection();
+            await brokerSockets[brokerNumber].DeleteConnection();
             brokerSockets[brokerNumber] = null;
             Console.WriteLine($"Removed Broker {brokerNumber}");
             PrintBrokerSockets(brokerSockets);

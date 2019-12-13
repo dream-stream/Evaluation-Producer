@@ -95,7 +95,7 @@ namespace Producer.Services
             {
                 if (queueFull == null) return;
                 var messages = _batchingService.GetMessages(queueFull);
-                await TryToSendWithRetries(header, messages);
+                await SendMessage(header, messages);
 
                 return;
             }
@@ -103,9 +103,9 @@ namespace Producer.Services
             var callback = new TimerCallback(async x =>
             {
                 var messages = _batchingService.GetMessages(header);
-                await TryToSendWithRetries(header, messages);
+                await SendMessage(header, messages);
             });
-            var timer = new Timer(callback, null, TimeSpan.FromSeconds(Variables.BatchTimerVariable), TimeSpan.FromSeconds(Variables.BatchTimerVariable));
+            var timer = new Timer(callback, null, Timeout.Infinite, Timeout.Infinite);
 
             _batchingService.CreateBatch(header, message, timer);
         }
@@ -117,7 +117,7 @@ namespace Producer.Services
             {
                 try
                 {
-                    if (await SendMessage(messages, header)) break;
+                    if (await SendMessage(header, messages)) break;
                     Console.WriteLine($"SendMessage retry {++retries}");
                     Thread.Sleep(500 * retries);
                 }
@@ -128,7 +128,7 @@ namespace Producer.Services
             }
         }
 
-        private async Task<bool> SendMessage(MessageContainer messages, MessageHeader header)
+        private async Task<bool> SendMessage(MessageHeader header, MessageContainer messages)
         {
             if (_brokerSocketsDict.TryGetValue($"{header.Topic}/{header.Partition}", out var brokerSocket))
             {

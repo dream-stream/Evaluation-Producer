@@ -112,7 +112,7 @@ namespace Producer.Services
         private static async Task CreateStartAndAddBroker(string brokerName, int brokerNumber, BrokerSocket[] brokerSockets)
         {
             var brokerSocket = new BrokerSocket();
-            var connectionString = Variables.IsDev ? "ws://localhost:5000/ws" : $"ws://{brokerName}.broker.default.svc.cluster.local/ws";
+            var connectionString = Variables.IsDev ? "ws://localhost:5041/ws" : $"ws://{brokerName}.broker.default.svc.cluster.local/ws";
             await brokerSocket.ConnectToBroker(connectionString);
             brokerSockets[brokerNumber] = brokerSocket;
         }

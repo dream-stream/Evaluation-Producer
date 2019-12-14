@@ -170,12 +170,14 @@ namespace Producer.Services
         {
             if (_taken == false)
             {
+                Console.WriteLine("Force update");
                 _taken = true;
                 _brokerSockets = await BrokerSocketHandler.UpdateBrokerSockets(_client, _brokerSockets);
                 if (_brokerSockets.Length == 0)
                     _brokerSocketsDict.Clear();
                 else
                     await BrokerSocketHandler.UpdateBrokerSocketsDictionary(_client, _brokerSocketsDict, _brokerSockets);
+                await Task.Delay(1000);
                 _taken = false;
             }
         }

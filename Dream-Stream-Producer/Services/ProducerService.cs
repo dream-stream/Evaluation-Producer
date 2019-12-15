@@ -1,21 +1,20 @@
 using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Net.Http;
+using System.Collections.Concurrent;
 using System.Threading;
 using System.Threading.Tasks;
 using dotnet_etcd;
-using MessagePack;
 using Producer.Models.Messages;
+using Producer.Serialization;
 using Prometheus;
 
 namespace Producer.Services
 {
     public class ProducerService : IProducer
     {
+        private readonly ISerializer _serializer;
         private readonly BatchingService _batchingService;
-        private HttpClient[] _brokerClients;
-        private readonly Dictionary<string, HttpClient> _brokerUrlsDict = new Dictionary<string, HttpClient>();
+        private BrokerSocket[] _brokerSockets;
+        private readonly ConcurrentDictionary<string, BrokerSocket> _brokerSocketsDict = new ConcurrentDictionary<string, BrokerSocket>();
         private EtcdClient _client;
         private const int MaxRetries = 10;
         private readonly Semaphore _brokerSocketHandlerLock = new Semaphore(1,1);
@@ -34,14 +33,18 @@ namespace Producer.Services
             LabelNames = new[] { "TopicPartition" }
         });
 
-        public ProducerService(BatchingService batchingService)
+        private static readonly Gauge MessageBatchSize = Metrics.CreateGauge("message_batch_size", "The size of the last sent batch.");
+        private bool _taken;
+
+        public ProducerService(ISerializer serializer, BatchingService batchingService)
         {
+            _serializer = serializer ?? throw new ArgumentNullException(nameof(serializer));
             _batchingService = batchingService ?? throw new ArgumentNullException(nameof(batchingService));
         }
 
         public static async Task<ProducerService> Setup(string etcdConnectionString)
         {
-            var producer = new ProducerService(new BatchingService(Variables.BatchingSizeVariable));
+            var producer = new ProducerService(new Serializer(), new BatchingService(Variables.BatchingSizeVariable));
             var etcdClient = new EtcdClient(etcdConnectionString);
             await producer.InitSockets(etcdClient);
 
@@ -58,25 +61,34 @@ namespace Producer.Services
         private async Task InitSockets(EtcdClient client)
         {
             _client = client;
-            _brokerClients = await BrokerHandler.UpdateBrokers(client, _brokerClients);
-            await BrokerHandler.UpdateBrokerHttpClientsDictionary(client, _brokerUrlsDict, _brokerClients);
-            client.WatchRange(BrokerHandler.BrokerTablePrefix, events =>
+            _brokerSockets = await BrokerSocketHandler.UpdateBrokerSockets(client, _brokerSockets);
+            await BrokerSocketHandler.UpdateBrokerSocketsDictionary(client, _brokerSocketsDict, _brokerSockets);
+            client.WatchRange(BrokerSocketHandler.BrokerTablePrefix, async events =>
             {
                 _brokerSocketHandlerLock.WaitOne();
-                _brokerClients = BrokerHandler.BrokerTableChangedHandler(events, _brokerClients);
+                _brokerSockets = await BrokerSocketHandler.BrokerTableChangedHandler(events, _brokerSockets);
                 _brokerSocketHandlerLock.Release();
             });
-            client.WatchRange(BrokerHandler.TopicTablePrefix, events =>
+            client.WatchRange(BrokerSocketHandler.TopicTablePrefix, events =>
             {
                 _brokerSocketHandlerLock.WaitOne();
-                BrokerHandler.TopicTableChangedHandler(events, _brokerUrlsDict, _brokerClients);
+                BrokerSocketHandler.TopicTableChangedHandler(events, _brokerSocketsDict, _brokerSockets);
                 _brokerSocketHandlerLock.Release();
             });
         }
 
+        public async Task CloseConnections()
+        {
+            foreach (var brokerSocket in _brokerSockets)
+            {
+                if (brokerSocket != null)
+                    await brokerSocket.DeleteConnection();
+            }
+            _client.Dispose();
+        }
+
         public async Task Publish(MessageHeader header, Message message)
         {
-            
             if (_batchingService.TryBatchMessage(header, message, out var queueFull))
             {
                 if (queueFull == null) return;
@@ -90,8 +102,7 @@ namespace Producer.Services
                 var messages = _batchingService.GetMessages(header);
                 await SendMessage(header, messages);
             });
-            var timer = new Timer(callback, null, Timeout.Infinite, Timeout.Infinite);//TimeSpan.FromSeconds(Variables.BatchTimerVariable), TimeSpan.FromSeconds(Variables.BatchTimerVariable));
-
+            var timer = new Timer(callback, null, Timeout.Infinite, Timeout.Infinite);
             _batchingService.CreateBatch(header, message, timer);
         }
 
@@ -104,7 +115,7 @@ namespace Producer.Services
                 {
                     if (await SendMessage(header, messages)) break;
                     Console.WriteLine($"SendMessage retry {++retries}");
-                    Thread.Sleep(500 * retries);
+                    await Task.Delay(500 * retries);
                 }
                 catch (Exception e)
                 {
@@ -115,21 +126,56 @@ namespace Producer.Services
 
         private async Task<bool> SendMessage(MessageHeader header, MessageContainer messages)
         {
-            if (_brokerUrlsDict.TryGetValue($"{header.Topic}/{header.Partition}", out var client))
+            try
             {
-                var data = LZ4MessagePackSerializer.Serialize<IMessage>(messages);
+                if (_brokerSocketsDict.TryGetValue($"{header.Topic}/{header.Partition}", out var brokerSocket))
+                {
+                    if (brokerSocket == null) throw new Exception("Failed to get brokerSocket");
+                    if (!brokerSocket.IsOpen())
+                    {
+                        await ForceUpdateBrokers();
+                        return false;
+                    }
+                    var message = _serializer.Serialize<IMessage>(messages);
+                    await brokerSocket.SendMessage(message);
+                    //Console.WriteLine($"Sent batched messages to socket {brokerSocket.ConnectedTo} with topic {header.Topic} with partition {header.Partition}");
+                    MessagesPublished.WithLabels($"{header.Topic}/{header.Partition}").Inc(messages.Messages.Count);
+                    MessagesPublishedSizeInBytes.WithLabels($"{header.Topic}/{header.Partition}").Inc(message.Length);
+                    MessageBatchSize.Set(messages.Messages.Count);
 
-                await client.PostAsync($"api/Broker?topic={header.Topic}&partition={header.Partition}&length={data.Length}&messageAmount={messages.Messages.Count}", 
-                    new StreamContent(new MemoryStream(data)));
+                    BatchMessagesPublished.WithLabels(brokerSocket.ConnectedTo).Inc();
+                    BatchMessagesPublished.WithLabels($"{header.Topic}/{header.Partition}").Inc();
 
-                BatchMessagesPublished.WithLabels($"{header.Topic}/{header.Partition}").Inc();
-                MessagesPublished.WithLabels($"{header.Topic}/{header.Partition}").Inc(messages.Messages.Count);
-                MessagesPublishedSizeInBytes.WithLabels($"{header.Topic}/{header.Partition}").Inc(data.Length);
+                    return true;
+                }
 
-                return true;
+                Console.WriteLine("Failed to send message");
             }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
 
-            return false;
+                await ForceUpdateBrokers();
+                return false;
+            }
+            
+            throw new Exception("Failed to get brokerSocket");
+        }
+
+        private async Task ForceUpdateBrokers()
+        {
+            if (_taken == false)
+            {
+                Console.WriteLine("Force update");
+                _taken = true;
+                _brokerSockets = await BrokerSocketHandler.UpdateBrokerSockets(_client, _brokerSockets);
+                if (_brokerSockets.Length == 0)
+                    _brokerSocketsDict.Clear();
+                else
+                    await BrokerSocketHandler.UpdateBrokerSocketsDictionary(_client, _brokerSocketsDict, _brokerSockets);
+                await Task.Delay(1000);
+                _taken = false;
+            }
         }
     }
 }

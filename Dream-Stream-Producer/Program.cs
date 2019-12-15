@@ -13,9 +13,9 @@ namespace Producer
 
         private static async Task Main()
         {
-            Variables.AmountOfMessagesVariable = 100000;
+            Variables.AmountOfMessagesVariable = 25000;
             Variables.BatchTimerVariable = 20;
-            Variables.BatchingSizeVariable = 10000;
+            Variables.BatchingSizeVariable = 2000;
             Variables.IsDev = true;
             const string topic = "Topic3";
 

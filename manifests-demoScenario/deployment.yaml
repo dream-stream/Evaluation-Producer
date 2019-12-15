@@ -18,11 +18,7 @@ spec:
     spec:
       containers:
       - name: evaluation-producer
-<<<<<<< HEAD
-        image: dreamstream/evaluation-producer:V38
-=======
-        image: dreamstream/evaluation-producer:V55
->>>>>>> websockets
+        image: dreamstream/evaluation-producer:V52
         imagePullPolicy: Always
         ports:
         - containerPort: 80
@@ -32,7 +28,7 @@ spec:
         - name: MESSAGE_AMOUNT
           value: "25000"
         - name: BATCHING_SIZE
-          value: "5000"
+          value: "2000"
         - name: BATCH_TIMER
           value: "5"
         - name: APPLICATION_TYPE
@@ -43,9 +39,9 @@ spec:
           value: "100"
         - name: SCENARIO
           value: >- 
-            100,100,100,100,100,100,100,100,100,100,
-            100,100,100,100,100,100,100,100,100,100,
-            100,100,100,100,100,100,100,100,100,100,
-            100,100,100,100,100,100,100,100,100,100,
-            100,100,100,100,100,100,100,100,100,100,
-            100,100,100,100,100,100,100,100,100,100
+            100,100,100,100,100,50,50,50,50,50,
+            25,25,25,25,25,100,100,100,100,100,
+            10,10,10,10,10,100,100,100,100,100,
+            100,100,100,100,100,40,40,40,40,40,
+            25,25,25,25,25,100,100,100,100,100,
+            100,100,100,100,100,10,10,10,10,10

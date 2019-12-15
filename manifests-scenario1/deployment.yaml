@@ -6,7 +6,7 @@ metadata:
     app: evaluation-producer
     k8s-app: prometheus
 spec:
-  replicas: 4
+  replicas: 1
   selector:
     matchLabels:
       app: evaluation-producer
@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
       - name: evaluation-producer
-        image: dreamstream/evaluation-producer:V56
+        image: dreamstream/evaluation-producer:V55
         imagePullPolicy: Always
         ports:
         - containerPort: 80
@@ -26,9 +26,9 @@ spec:
         - name: ASPNETCORE_ENVIRONMENT
           value: "Production"
         - name: MESSAGE_AMOUNT
-          value: "25000"
+          value: "2500"
         - name: BATCHING_SIZE
-          value: "5000"
+          value: "2000"
         - name: BATCH_TIMER
           value: "5"
         - name: APPLICATION_TYPE

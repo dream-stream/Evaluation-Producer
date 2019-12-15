@@ -75,8 +75,8 @@ namespace Evaluation_Producer
                         p.Produce(topicName, new Message<string, Message> { Key = messages[i].Address, Value = messages[i] }, KafkaProduceHandler);
                     }
                     stopwatch.Stop();
-                    ProducerRunTime.WithLabels("Dream-Stream").Set(stopwatch.ElapsedMilliseconds);
-                    MessagesPublished.WithLabels("Dream-Stream").Inc(messages.Length);
+                    ProducerRunTime.WithLabels("Kafka").Set(stopwatch.ElapsedMilliseconds);
+                    MessagesPublished.WithLabels("Kafka").Inc(messages.Length);
                 }
 
                 await Task.Delay(delay); //Delay added for test of timer on batches

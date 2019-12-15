@@ -18,11 +18,7 @@ spec:
     spec:
       containers:
       - name: evaluation-producer
-<<<<<<< HEAD
-        image: dreamstream/evaluation-producer:V38
-=======
-        image: dreamstream/evaluation-producer:V55
->>>>>>> websockets
+        image: dreamstream/evaluation-producer:V56
         imagePullPolicy: Always
         ports:
         - containerPort: 80

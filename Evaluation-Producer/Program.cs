@@ -98,7 +98,8 @@ namespace Evaluation_Producer
             var config = new ProducerConfig
             {
                 BootstrapServers = bootstrapServers,
-                LingerMs = 100
+                LingerMs = null,
+                BatchNumMessages = EnvironmentVariables.BatchingSizeVariable
             };
             return config;
         }

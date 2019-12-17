@@ -6,7 +6,7 @@ metadata:
     app: evaluation-producer
     k8s-app: prometheus
 spec:
-  replicas: 1
+  replicas: 4
   selector:
     matchLabels:
       app: evaluation-producer
@@ -26,7 +26,7 @@ spec:
         - name: ASPNETCORE_ENVIRONMENT
           value: "Production"
         - name: MESSAGE_AMOUNT
-          value: "2500"
+          value: "25000"
         - name: BATCHING_SIZE
           value: "2000"
         - name: BATCH_TIMER

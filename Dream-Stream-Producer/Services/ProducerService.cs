@@ -93,7 +93,14 @@ namespace Producer.Services
             {
                 if (queueFull == null) return;
                 var messages = _batchingService.GetMessages(queueFull);
-                ThreadPool.QueueUserWorkItem(async x => await SendMessage(header, messages));
+                if (!await SendMessage(header, messages))
+                {
+                    ThreadPool.QueueUserWorkItem( async x =>
+                    {
+                        await TryToSendWithRetries(header, messages);
+                    });
+                }
+                
                 return;
             }
 
@@ -115,6 +122,11 @@ namespace Producer.Services
                 {
                     if (await SendMessage(header, messages)) break;
                     Console.WriteLine($"SendMessage retry {++retries}");
+                    if (retries % 5 == 0)
+                    {
+                        Console.WriteLine($"_taken is {_taken} setting it to false");
+                        _taken = false;
+                    }
                     await Task.Delay(500 * retries);
                 }
                 catch (Exception e)
@@ -133,7 +145,7 @@ namespace Producer.Services
                     if (brokerSocket == null) throw new Exception("Failed to get brokerSocket");
                     if (!brokerSocket.IsOpen())
                     {
-                        await ForceUpdateBrokers();
+                        await ForceUpdateBrokerMapping();
                         return false;
                     }
                     var message = _serializer.Serialize<IMessage>(messages);
@@ -150,31 +162,31 @@ namespace Producer.Services
                 }
 
                 Console.WriteLine("Failed to send message");
+                await ForceUpdateBrokerMapping();
+                return false;
             }
             catch (Exception e)
             {
                 Console.WriteLine(e);
 
-                await ForceUpdateBrokers();
+                await ForceUpdateBrokerMapping();
                 return false;
             }
-            
-            throw new Exception("Failed to get brokerSocket");
         }
 
-        private async Task ForceUpdateBrokers()
+        private async Task ForceUpdateBrokerMapping()
         {
             if (_taken == false)
             {
                 try
                 {
-                    Console.WriteLine("Force update");
-                    _taken = true;
-                    _brokerSockets = await BrokerSocketHandler.UpdateBrokerSockets(_client, _brokerSockets);
-                    if (_brokerSockets.Length == 0)
-                        _brokerSocketsDict.Clear();
-                    else
-                        await BrokerSocketHandler.UpdateBrokerSocketsDictionary(_client, _brokerSocketsDict, _brokerSockets);
+                    await BrokerSocketHandler.UpdateBrokerSocketsDictionary(_client, _brokerSocketsDict, _brokerSockets);
+                    await Task.Delay(1000);
+                }
+                catch(Exception e)
+                {
+                    Console.WriteLine("Failed to Force update");
+                    Console.WriteLine(e);
                     await Task.Delay(1000);
                 }
                 finally

@@ -27,6 +27,20 @@ namespace Producer.Services
             return brokerSockets;
         }
 
+        public static async Task<BrokerSocket[]> UpdateSpecificBrokerSockets(EtcdClient client, BrokerSocket[] brokerSockets, BrokerSocket brokerSocket)
+        {
+            var rangeResponse = await client.GetRangeValAsync(BrokerTablePrefix);
+            if (rangeResponse.Count == 0)
+            {
+                Console.WriteLine("No brokers connected");
+                return new BrokerSocket[] { };
+            }
+            var maxBrokerNumber = rangeResponse.Keys.Max(GetBrokerNumber);
+            brokerSockets = new BrokerSocket[maxBrokerNumber + 1];
+            foreach (var (key, _) in rangeResponse) await AddBroker(key, brokerSockets);
+            return brokerSockets;
+        }
+
         public static async Task UpdateBrokerSocketsDictionary(EtcdClient client, ConcurrentDictionary<string, BrokerSocket> brokerSocketsDict, BrokerSocket[] brokerSockets)
         {
             var rangeVal = await client.GetRangeValAsync(TopicTablePrefix);

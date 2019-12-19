@@ -29,8 +29,7 @@ namespace Producer
                 sw.Reset();
                 sw.Start();
 
-                var tasks = Enumerable.Range(0, messageHeaders.Length) 
-                    .Select(i => _producer.Publish(messageHeaders[i], messages[i]));
+                var tasks = Enumerable.Range(0, messageHeaders.Length).Select(i => _producer.Publish(messageHeaders[i], messages[i]));
                 await Task.WhenAll(tasks);
 
                 sw.Stop();

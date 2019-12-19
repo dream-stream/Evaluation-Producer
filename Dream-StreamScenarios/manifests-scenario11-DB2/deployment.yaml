@@ -1,34 +1,27 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: evaluation-producer-kafka
+  name: evaluation-producer
   labels:
-    app: evaluation-producer-kafka
+    app: evaluation-producer
     k8s-app: prometheus
 spec:
   replicas: 4
   selector:
     matchLabels:
-      app: evaluation-producer-kafka
+      app: evaluation-producer
   template:
     metadata:
       labels:
-        app: evaluation-producer-kafka
+        app: evaluation-producer
         k8s-app: prometheus
     spec:
       containers:
-      - name: evaluation-producer-kafka
+      - name: evaluation-producer
         image: dreamstream/evaluation-producer:V59
         imagePullPolicy: Always
         ports:
         - containerPort: 80
-        resources:
-          requests:
-            memory: "500Mi"
-            cpu: "1500m"
-          limits:
-            memory: "500Mi"
-            cpu: "1500m"
         env:
         - name: ASPNETCORE_ENVIRONMENT
           value: "Production"
@@ -36,17 +29,19 @@ spec:
           value: "25000"
         - name: BATCHING_SIZE
           value: "2000"
+        - name: BATCH_TIMER
+          value: "5"
         - name: APPLICATION_TYPE
-          value: "Kafka"
+          value: "Dream-Stream"
         - name: TOPIC_NAME
           value: "Topic3"
         - name: DELAY_IN_MILLISECOND
           value: "100"
         - name: SCENARIO
-          value: >- 
-            100,100,100,100,100,100,100,100,100,100,
-            100,100,100,100,100,100,100,100,100,100,
-            100,100,100,100,100,100,100,100,100,100,
-            100,100,100,100,100,100,100,100,100,100,
-            100,100,100,100,100,100,100,100,100,100,
-            100,100,100,100,100,100,100,100,100,100
+          value: >-
+            8,20,30,30,25,18,12,8,9,10,
+            10,10,10,9,9,9,8,8,8,8,
+            8,8,10,11,12,12,30,10,50,70,
+            100,60,35,10,10,9,9,8,8,8,
+            8,7,6,10,28,25,18,15,12,10,
+            10,8,7,10,18,18,16,14,12,9

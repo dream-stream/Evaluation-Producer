@@ -13,6 +13,7 @@ namespace Evaluation_Producer
             ApplicationType = Environment.GetEnvironmentVariable("APPLICATION_TYPE") ?? "Dream-Stream";
             TopicName = Environment.GetEnvironmentVariable("TOPIC_NAME") ?? "Topic";
             DelayInMillisecond = int.Parse(Environment.GetEnvironmentVariable("DELAY_IN_MILLISECOND") ?? "15000");
+            LingerMs = int.Parse(Environment.GetEnvironmentVariable("LINGER_MS") ?? "5");
             Scenario = (Environment.GetEnvironmentVariable("SCENARIO") ??
                 @"100,100,100,100,100,100,100,100,100,100,
                   100,100,100,100,100,100,100,100,100,100,
@@ -38,5 +39,6 @@ namespace Evaluation_Producer
         public static int BatchTimerVariable { get; set; }
         public static string ApplicationType { get; set; }
         public static int DelayInMillisecond { get; set; }
+        public static double? LingerMs { get; set; }
     }
 }

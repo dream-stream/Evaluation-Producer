@@ -1,3 +1,4 @@
+using System;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading;
@@ -171,6 +172,64 @@ namespace UnitTest
             }
 
             _testOutputHelper.WriteLine($"Time: {stopWatch.ElapsedTicks}");
+        }
+
+        [Fact]
+        public async Task ThreadingTest()
+        {
+            var myThreadValue = 0L;
+            var myTaskValue = 0L;
+
+
+            for (int i = 0; i < 10; i++)
+            {
+                var task = Task.Run(() =>
+                {
+                    ThreadPool.QueueUserWorkItem(x =>
+                    {
+                        for (var i = 0; i < 100000000; i++)
+                        {
+                            Interlocked.Increment(ref myThreadValue);
+
+                            if(i == 100000000 - 1)
+                                _testOutputHelper.WriteLine("Made it through");
+                        }
+                    });
+
+                    Task.Run(async () =>
+                    {
+                        for (var i = 0; i < 100000000; i++)
+                        {
+                            Interlocked.Increment(ref myTaskValue);
+                            if (i == 100000000 - 1)
+                                _testOutputHelper.WriteLine("Made it through");
+                        }
+
+                    });
+                });
+                await Task.WhenAll(task);
+                await Task.Delay(100);
+                _testOutputHelper.WriteLine($"{i} {myThreadValue}");
+                _testOutputHelper.WriteLine($"{i} {myTaskValue}");
+            }
+
+            _testOutputHelper.WriteLine("Out");
+
+            
+
+
+
+            await Task.Delay(1000);
+
+            _testOutputHelper.WriteLine($"{myThreadValue}");
+            _testOutputHelper.WriteLine($"{myTaskValue}");
+
+            _testOutputHelper.WriteLine("Long delay");
+            await Task.Delay(30000);
+            _testOutputHelper.WriteLine("Done");
+            _testOutputHelper.WriteLine($"{myThreadValue}");
+            _testOutputHelper.WriteLine($"{myTaskValue}");
+
         }
     }
 }

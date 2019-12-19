@@ -1,52 +1,56 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: evaluation-producer-kafka
+  name: evaluation-producer
   labels:
-    app: evaluation-producer-kafka
+    app: evaluation-producer
     k8s-app: prometheus
 spec:
-  replicas: 4
+  replicas: 10
   selector:
     matchLabels:
-      app: evaluation-producer-kafka
+      app: evaluation-producer
   template:
     metadata:
       labels:
-        app: evaluation-producer-kafka
+        app: evaluation-producer
         k8s-app: prometheus
     spec:
       containers:
-      - name: evaluation-producer-kafka
-        image: dreamstream/evaluation-producer:V59
+      - name: evaluation-producer
+        image: dreamstream/evaluation-producer:V69
         imagePullPolicy: Always
         ports:
         - containerPort: 80
         resources:
           requests:
             memory: "500Mi"
-            cpu: "1500m"
+            cpu: "1000m"
           limits:
             memory: "500Mi"
-            cpu: "1500m"
+            cpu: "1000m"
         env:
         - name: ASPNETCORE_ENVIRONMENT
           value: "Production"
         - name: MESSAGE_AMOUNT
-          value: "25000"
+          value: "10000"
         - name: BATCHING_SIZE
           value: "2000"
+        - name: BATCH_TIMER
+          value: "5"
         - name: APPLICATION_TYPE
           value: "Kafka"
         - name: TOPIC_NAME
           value: "Topic3"
         - name: DELAY_IN_MILLISECOND
+          value: "20"
+        - name: LINGER_MS
           value: "100"
         - name: SCENARIO
           value: >- 
-            100,100,100,100,100,100,100,100,100,100,
-            100,100,100,100,100,100,100,100,100,100,
-            100,100,100,100,100,100,100,100,100,100,
-            100,100,100,100,100,100,100,100,100,100,
-            100,100,100,100,100,100,100,100,100,100,
-            100,100,100,100,100,100,100,100,100,100
+            100,100,100,100,100,10,10,10,10,10,
+            100,100,100,100,100,10,10,10,10,10,
+            100,100,100,100,100,10,10,10,10,10,
+            100,100,100,100,100,10,10,10,10,10,
+            100,100,100,100,100,10,10,10,10,10,
+            100,100,100,100,100,10,10,10,10,10

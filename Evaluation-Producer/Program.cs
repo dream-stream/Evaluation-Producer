@@ -54,6 +54,10 @@ namespace Evaluation_Producer
         private static async Task KafkaFlush(Message[] messages, string topicName)
         {
             var delay = EnvironmentVariables.DelayInMillisecond;
+
+            Console.WriteLine("Scenario Array: ");
+            Array.ForEach(EnvironmentVariables.Scenario,  Console.Write);
+
             var config = KafkaConfig();
 
             var stopwatch = new Stopwatch();
@@ -62,24 +66,36 @@ namespace Evaluation_Producer
             using var p = new ProducerBuilder<string, Message>(config).SetValueSerializer(new MySerializer()).Build();
             while (true)
             {
-                var time = DateTime.Now;
-                if (time.Second != lastRun)
+                try
                 {
-                    var loadPercentage = EnvironmentVariables.Scenario[time.Minute];
-                    lastRun = time.Second;
-
-                    stopwatch.Reset();
-                    stopwatch.Start();
-                    for (var i = 0; i < (messages.Length / 100 * loadPercentage); i++)
+                    var time = DateTime.Now;
+                    if (time.Second != lastRun)
                     {
-                        p.Produce(topicName, new Message<string, Message> { Key = messages[i].Address, Value = messages[i] }, KafkaProduceHandler);
+                        var loadPercentage = EnvironmentVariables.Scenario[time.Minute];
+                        lastRun = time.Second;
+
+                        stopwatch.Reset();
+                        stopwatch.Start();
+                        for (var i = 0; i < (messages.Length / 100 * loadPercentage); i++)
+                        {
+                            p.Produce(topicName, new Message<string, Message> {Key = messages[i].Address, Value = messages[i]}, KafkaProduceHandler);
+                        }
+
+                        stopwatch.Stop();
+                        ProducerRunTime.WithLabels("Kafka").Set(stopwatch.ElapsedMilliseconds);
+                        MessagesPublished.WithLabels("Kafka").Inc(messages.Length / 100 * loadPercentage);
                     }
-                    stopwatch.Stop();
-                    ProducerRunTime.WithLabels("Kafka").Set(stopwatch.ElapsedMilliseconds);
-                    MessagesPublished.WithLabels("Kafka").Inc(messages.Length);
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine(e);
+                    Console.WriteLine("Failed to send messages... Sleeping for 100 ms");
+                }
+                finally
+                {
+                    await Task.Delay(delay); //Delay added for test of timer on batches
                 }
 
-                await Task.Delay(delay); //Delay added for test of timer on batches
             }
         }
 
@@ -98,8 +114,9 @@ namespace Evaluation_Producer
             var config = new ProducerConfig
             {
                 BootstrapServers = bootstrapServers,
-                LingerMs = null,
-                BatchNumMessages = EnvironmentVariables.BatchingSizeVariable
+                LingerMs = EnvironmentVariables.LingerMs,
+                BatchNumMessages = EnvironmentVariables.BatchingSizeVariable,
+                CompressionType = CompressionType.Lz4
             };
             return config;
         }
@@ -144,7 +161,7 @@ namespace Evaluation_Producer
     {
         public byte[] Serialize(Message data, SerializationContext context)
         {
-            return LZ4MessagePackSerializer.Serialize(data);
+            return MessagePackSerializer.Serialize(data);
         }
     }
 }

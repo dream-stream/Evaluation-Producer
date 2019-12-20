@@ -64,11 +64,13 @@ namespace Evaluation_Producer
             var lastRun = -1;
 
             using var p = new ProducerBuilder<string, Message>(config).SetValueSerializer(new MySerializer()).Build();
+            var remaining = 0;
             while (true)
             {
                 try
                 {
                     var time = DateTime.Now;
+
                     if (time.Second != lastRun)
                     {
                         var loadPercentage = EnvironmentVariables.Scenario[time.Minute];
@@ -76,15 +78,27 @@ namespace Evaluation_Producer
 
                         stopwatch.Reset();
                         stopwatch.Start();
-                        for (var i = 0; i < (messages.Length / 100 * loadPercentage); i++)
+                        remaining = messages.Length / 100 * loadPercentage;
+                        for (var i = 0; i < messages.Length / 100 * loadPercentage; i++)
                         {
-                            p.Produce(topicName, new Message<string, Message> {Key = messages[i].Address, Value = messages[i]}, KafkaProduceHandler);
+                            p.Produce(topicName, new Message<string, Message> { Key = messages[i].Address, Value = messages[i] }, KafkaProduceHandler);
+                            MessagesPublished.WithLabels("Kafka").Inc();
+                            remaining--;
                         }
-
                         stopwatch.Stop();
                         ProducerRunTime.WithLabels("Kafka").Set(stopwatch.ElapsedMilliseconds);
-                        MessagesPublished.WithLabels("Kafka").Inc(messages.Length / 100 * loadPercentage);
                     }
+                    // If it failed to send, try to reset the rest in the same sec.
+                    if (time.Second == lastRun && remaining > 0)
+                    {
+                        var localRemaining = remaining;
+                        for (var i = 0; i < localRemaining; i++)
+                        {
+                            p.Produce(topicName, new Message<string, Message> { Key = messages[i].Address, Value = messages[i] }, KafkaProduceHandler);
+                            remaining--;
+                        }
+                    }
+
                 }
                 catch (Exception e)
                 {

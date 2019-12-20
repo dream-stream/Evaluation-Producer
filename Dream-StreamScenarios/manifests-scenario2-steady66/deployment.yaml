@@ -18,10 +18,17 @@ spec:
     spec:
       containers:
       - name: evaluation-producer
-        image: dreamstream/evaluation-producer:V70
+        image: dreamstream/evaluation-producer:V72
         imagePullPolicy: Always
         ports:
         - containerPort: 80
+        resources:
+          requests:
+            memory: "500Mi"
+            cpu: "1000m"
+          limits:
+            memory: "500Mi"
+            cpu: "1000m"
         env:
         - name: ASPNETCORE_ENVIRONMENT
           value: "Production"
@@ -38,7 +45,7 @@ spec:
         - name: DELAY_IN_MILLISECOND
           value: "100"
         - name: SCENARIO
-          value: >- 
+          value: >-
             66,66,66,66,66,66,66,66,66,66,
             66,66,66,66,66,66,66,66,66,66,
             66,66,66,66,66,66,66,66,66,66,

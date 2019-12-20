@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
       - name: evaluation-producer
-        image: dreamstream/evaluation-producer:V69
+        image: dreamstream/evaluation-producer:V73
         imagePullPolicy: Always
         ports:
         - containerPort: 80
@@ -47,7 +47,7 @@ spec:
         - name: LINGER_MS
           value: "100"
         - name: SCENARIO
-          value: >- 
+          value: >-
             66,66,66,66,66,66,66,66,66,66,
             66,66,66,66,66,66,66,66,66,66,
             66,66,66,66,66,66,66,66,66,66,

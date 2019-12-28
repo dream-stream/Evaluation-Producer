@@ -3,14 +3,9 @@ Get-Date
 $env:KUBECONFIG = "$ENV:UserProfile\.kube\k3s.yaml"
 kubectl get nodes
 
-# Write-Output "manifests-scenario1-steady100"
-# Get-Date
-# kubectl apply -f .\KafkaScenarios\manifests-scenario1-steady100
-# Start-Sleep -s 2400
-
-Write-Output "manifests-scenario2-steady66"
+Write-Output "manifests-scenario1-steady100"
 Get-Date
-kubectl apply -f .\KafkaScenarios\manifests-scenario2-steady66
+kubectl apply -f .\KafkaScenarios\manifests-scenario1-steady100
 Start-Sleep -s 2400
 
 Write-Output "manifests-scenario10-DB1"
@@ -27,6 +22,11 @@ Write-Output "manifests-scenario11-DB2"
 Get-Date
 kubectl apply -f .\KafkaScenarios\manifests-scenario11-DB2
 Start-Sleep -s 5400
+
+Write-Output "manifests-scenario2-steady66"
+Get-Date
+kubectl apply -f .\KafkaScenarios\manifests-scenario2-steady66
+Start-Sleep -s 1800
 
 Write-Output "scenario9-10and100every1min"
 Get-Date
@@ -51,12 +51,12 @@ Start-Sleep -s 3600
 Write-Output "scenario5-decreasing"
 Get-Date
 kubectl apply -f .\KafkaScenarios\manifests-scenario5-decreasing
-Start-Sleep -s 3600
+Start-Sleep -s 7200
 
 Write-Output "scenario4-increasing"
 Get-Date
 kubectl apply -f .\KafkaScenarios\manifests-scenario4-increasing
-Start-Sleep -s 3600
+Start-Sleep -s 7200
 
 Write-Output "Stopped!"
 kubectl delete -f .\KafkaScenarios\manifests-scenario5-decreasing

@@ -45,7 +45,7 @@ spec:
         - name: DELAY_IN_MILLISECOND
           value: "20"
         - name: LINGER_MS
-          value: "100"
+          value: "1000"
         - name: SCENARIO
           value: >-
             33,33,33,33,33,33,33,33,33,33,

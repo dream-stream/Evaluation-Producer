@@ -1,23 +1,23 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: evaluation-producer
+  name: evaluation-producer-ds
   labels:
-    app: evaluation-producer
+    app: evaluation-producer-ds
     k8s-app: prometheus
 spec:
   replicas: 10
   selector:
     matchLabels:
-      app: evaluation-producer
+      app: evaluation-producer-ds
   template:
     metadata:
       labels:
-        app: evaluation-producer
+        app: evaluation-producer-ds
         k8s-app: prometheus
     spec:
       containers:
-      - name: evaluation-producer
+      - name: evaluation-producer-ds
         image: dreamstream/evaluation-producer:V73
         imagePullPolicy: Always
         ports:
@@ -25,10 +25,10 @@ spec:
         resources:
           requests:
             memory: "500Mi"
-            cpu: "1000m"
+            cpu: "500m"
           limits:
             memory: "500Mi"
-            cpu: "1000m"
+            cpu: "500m"
         env:
         - name: ASPNETCORE_ENVIRONMENT
           value: "Production"
